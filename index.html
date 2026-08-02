@@ -2556,11 +2556,21 @@
     spotifyPlayer.connect();
   };
 
-  async function spotifyApi(path, opts = {}){
-    return fetch('https://api.spotify.com/v1' + path, {
+  async function spotifyApi(path, opts = {}, retriesLeft = 2){
+    const res = await fetch('https://api.spotify.com/v1' + path, {
       ...opts,
       headers: { 'Authorization': 'Bearer ' + spotifyAccessToken, 'Content-Type': 'application/json', ...(opts.headers||{}) },
     });
+    // Spotify's rate limit (429) is usually a short, self-clearing window —
+    // wait however long Spotify tells us to (capped, so we don't hang forever
+    // on a bad Retry-After) and try again a couple of times before giving up.
+    if(res.status === 429 && retriesLeft > 0){
+      const retryAfterHeader = res.headers.get('Retry-After');
+      const waitMs = Math.min((retryAfterHeader ? parseInt(retryAfterHeader, 10) : (3 - retriesLeft)) * 1000, 8000);
+      await new Promise(r => setTimeout(r, waitMs));
+      return spotifyApi(path, opts, retriesLeft - 1);
+    }
+    return res;
   }
 
   // Pulls the real reason out of a failed Spotify response (status + Spotify's own
@@ -3347,10 +3357,8 @@
   // Fetches real "recently played" / "top tracks" data from Spotify and swaps
   // the Home shelves over to it. Leaves the demo picks in place on failure.
   async function loadSpotifyHomeShelves(){
-    const [recent, top] = await Promise.all([
-      spotifyGetRecentlyPlayed(10).catch(err => { console.warn('Could not load Spotify recently played:', err); return []; }),
-      spotifyGetTopTracks(6).catch(err => { console.warn('Could not load Spotify top tracks:', err); return []; }),
-    ]);
+    const recent = await spotifyGetRecentlyPlayed(10).catch(err => { console.warn('Could not load Spotify recently played:', err); return []; });
+    const top = await spotifyGetTopTracks(6).catch(err => { console.warn('Could not load Spotify top tracks:', err); return []; });
     if(recent.length || top.length){
       spotifyRecentTracks = recent.slice(0, 6);
       spotifyTopTracks = top;
@@ -5158,9 +5166,12 @@
       // once the SDK script (loaded in <head>) is ready — it reads spotifyAccessToken directly.
       // If the SDK already fired before we got the token, kick it manually:
       if(window.Spotify && !spotifyPlayer) window.onSpotifyWebPlaybackSDKReady();
-      loadSpotifyPlaylists();
-      loadSpotifyTopSongs();
-      loadSpotifyHomeShelves();
+      // Run these one after another rather than all at once — firing 3+ API
+      // calls in the same instant is what was tripping Spotify's rate limit
+      // right after connecting.
+      await loadSpotifyPlaylists();
+      await loadSpotifyTopSongs();
+      await loadSpotifyHomeShelves();
     } else {
       setConnectButtonState('disconnected');
     }
