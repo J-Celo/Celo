@@ -1257,6 +1257,70 @@
     .eq-slider{ width:110px; }
     .settings-body{ padding:18px; gap:22px; }
   }
+
+  /* ============================================================
+     TACTILE FEEDBACK — every clickable control gets an immediate,
+     physical-feeling response on press, not just on hover (which
+     touch devices never see anyway). This is what makes clicking
+     around the app feel "live" instead of inert.
+     ============================================================ */
+  button:not(:disabled):active,
+  .card:active,
+  .play-fab:active,
+  .playlist-item:active,
+  .eq-preset-btn:active,
+  .lib-table tbody tr:active{
+    transform:scale(0.94);
+    transition:transform .08s ease;
+  }
+  .play-main:active{ transform:scale(0.94) !important; }
+  .heart-btn:active svg,
+  .npo-heart:active svg{ transform:scale(0.8); }
+  .heart-btn svg{ transition:transform .12s cubic-bezier(.34,1.56,.64,1); }
+  .settings-btn:active{ transform:rotate(45deg) scale(0.9); }
+  .hamburger:active,
+  .spotify-connect-btn:active{ transform:scale(0.96); }
+
+  /* a punchier bounce for the moment a track gets liked, layered on
+     top of the plain color swap that already happens via .liked */
+  @keyframes heart-pop{
+    0%{ transform:scale(1); }
+    35%{ transform:scale(1.35); }
+    60%{ transform:scale(0.92); }
+    100%{ transform:scale(1); }
+  }
+  .heart-btn.pop svg{ animation:heart-pop .38s cubic-bezier(.34,1.56,.64,1); }
+
+  /* animated dots for the "Searching…" state so a pending search
+     reads as active work rather than a static label — animates
+     width of an overflow-hidden span rather than the `content`
+     property, which most browsers won't animate via keyframes */
+  .sr-state.is-loading::after{
+    content:'...';
+    display:inline-block;
+    overflow:hidden;
+    width:0;
+    vertical-align:bottom;
+    animation:sr-dots 1.2s steps(4, end) infinite;
+  }
+  @keyframes sr-dots{
+    to{ width:1.25em; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    button:not(:disabled):active,
+    .card:active,
+    .play-fab:active,
+    .playlist-item:active,
+    .eq-preset-btn:active,
+    .lib-table tbody tr:active,
+    .play-main:active,
+    .settings-btn:active,
+    .hamburger:active,
+    .spotify-connect-btn:active{ transform:none; }
+    .heart-btn.pop svg{ animation:none; }
+    .sr-state.is-loading::after{ animation:none; content:'…'; }
+  }
 </style>
 </head>
 <body>
@@ -1550,7 +1614,7 @@
   // ================================================================
   // SPOTIFY INTEGRATION — fill in your Client ID (see comment near <head>)
   // ================================================================
-  const SPOTIFY_CLIENT_ID = 'YOUR_SPOTIFY_CLIENT_ID'; // <-- required, from developer.spotify.com/dashboard
+  const SPOTIFY_CLIENT_ID = '6383cdd789d04c4abeef1a8b2c0b1a8e'; // <-- required, from developer.spotify.com/dashboard
   const SPOTIFY_REDIRECT_URI = window.location.origin + window.location.pathname;
   const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state';
 
@@ -1765,6 +1829,46 @@
   let playbackMode = 'local'; // 'local' (audio element) or 'spotify' (Web Playback SDK, full tracks)
   const liked = new Set();
 
+  // ---------------- persistence (localStorage) ----------------
+  // Saves the stuff a returning listener would expect to survive a refresh:
+  // liked tracks, crate order, shuffle/repeat, volume, and EQ/visualizer settings.
+  // Spotify auth/session state is intentionally excluded here — that's handled
+  // separately by the existing spotifyInitFromStorage() flow.
+  const PERSIST_KEY = 'celo:player-state:v1';
+  function loadPersistedState(){
+    try{
+      const raw = localStorage.getItem(PERSIST_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch(err){
+      console.warn('Could not read saved player state:', err);
+      return {};
+    }
+  }
+  const persisted = loadPersistedState();
+
+  function savePersistedState(patch){
+    try{
+      const current = loadPersistedState();
+      localStorage.setItem(PERSIST_KEY, JSON.stringify({ ...current, ...patch }));
+    } catch(err){
+      console.warn('Could not save player state:', err);
+    }
+  }
+
+  // apply saved liked tracks + crate order now, before anything renders from them
+  if(Array.isArray(persisted.liked)){
+    persisted.liked.forEach(id => { if(tracks.some(t => t.id === id)) liked.add(id); });
+  }
+  if(Array.isArray(persisted.crateOrder) &&
+     persisted.crateOrder.length === crateOrder.length &&
+     persisted.crateOrder.every(id => crateOrder.includes(id))){
+    crateOrder = persisted.crateOrder.slice();
+  }
+  if(persisted.repeatMode === 'off' || persisted.repeatMode === 'all' || persisted.repeatMode === 'one'){
+    repeatMode = persisted.repeatMode;
+  }
+  if(typeof persisted.shuffleOn === 'boolean') shuffleOn = persisted.shuffleOn;
+
   const audioEl = document.getElementById('audioEl');
 
   // ---------------- render: sidebar playlists ----------------
@@ -1908,6 +2012,7 @@
         if(!before) toIdx += 1;
         crateOrder.splice(toIdx, 0, dragSourceId);
         renderLibrary();
+        savePersistedState({ crateOrder });
       }
     }
     dragSourceId = null;
@@ -1927,9 +2032,23 @@
     const heart = e.target.closest('[data-heart]');
     if(heart){
       const id = parseInt(heart.dataset.heart, 10);
-      liked.has(id) ? liked.delete(id) : liked.add(id);
+      const nowLiked = !liked.has(id);
+      nowLiked ? liked.add(id) : liked.delete(id);
       heart.classList.toggle('liked');
+      if(nowLiked){
+        heart.classList.remove('pop');
+        void heart.offsetWidth; // restart animation if clicked again quickly
+        heart.classList.add('pop');
+        const row = heart.closest('tr');
+        if(row){
+          row.classList.remove('flash');
+          void row.offsetWidth;
+          row.classList.add('flash');
+          row.addEventListener('animationend', () => row.classList.remove('flash'), { once:true });
+        }
+      }
       if(id === currentIndex) syncHeart();
+      savePersistedState({ liked: Array.from(liked) });
       return;
     }
     const row = e.target.closest('tr');
@@ -1988,7 +2107,7 @@
   async function runLiveSearch(query){
     if(searchAbort) searchAbort.abort();
     searchAbort = new AbortController();
-    renderResultsState('<div class="sr-state">Searching…</div>');
+    renderResultsState('<div class="sr-state is-loading">Searching</div>');
 
     if(spotifyAccessToken){
       try{
@@ -2466,11 +2585,13 @@
     treble:   [-1, 0, 0, 2, 5, 7],
     loudness: [6, 3, -2, -2, 3, 6],
   };
-  let eqEnabled = false;
-  let eqBandGains = EQ_PRESETS.flat.slice();
-  let eqPreampDb = 0;
+  let eqEnabled = typeof persisted.eqEnabled === 'boolean' ? persisted.eqEnabled : false;
+  let eqBandGains = (Array.isArray(persisted.eqBandGains) && persisted.eqBandGains.length === EQ_BAND_DEFS.length)
+    ? persisted.eqBandGains.slice() : EQ_PRESETS.flat.slice();
+  let eqPreampDb = typeof persisted.eqPreampDb === 'number' ? persisted.eqPreampDb : 0;
   let eqFilterNodes = null;
   let eqPreampNode = null;
+  let savedActivePreset = typeof persisted.eqActivePreset === 'string' ? persisted.eqActivePreset : null;
 
   function buildEqChain(){
     if(!audioCtx || eqFilterNodes) return;
@@ -2566,7 +2687,8 @@
   const eqPreampValue = document.getElementById('eqPreampValue');
   const vizEnableToggle = document.getElementById('vizEnableToggle');
 
-  let vizEnabled = true;
+  let vizEnabled = typeof persisted.vizEnabled === 'boolean' ? persisted.vizEnabled : true;
+  vizEnableToggle.checked = vizEnabled;
 
   function fmtDb(n){ return (n > 0 ? '+' : '') + n + 'dB'; }
 
@@ -2613,6 +2735,7 @@
     setActivePreset(name);
     refreshEqUI();
     applyEqToGraph();
+    savePersistedState({ eqBandGains, eqActivePreset: name });
   }
 
   eqPresetsEl.addEventListener('click', (e) => {
@@ -2628,6 +2751,7 @@
       eqBandWrapEls[i].classList.toggle('active', eqBandGains[i] !== 0);
       setActivePreset(null); // manual tweak — no preset matches anymore
       applyEqToGraph();
+      savePersistedState({ eqBandGains, eqActivePreset: null });
     });
   });
 
@@ -2635,17 +2759,20 @@
     eqPreampDb = Number(eqPreampSlider.value);
     eqPreampValue.textContent = fmtDb(eqPreampDb);
     applyEqToGraph();
+    savePersistedState({ eqPreampDb });
   });
 
   eqEnableToggle.addEventListener('change', () => {
     eqEnabled = eqEnableToggle.checked;
     refreshEqUI();
     applyEqToGraph();
+    savePersistedState({ eqEnabled });
   });
 
   eqResetBtn.addEventListener('click', () => {
     eqPreampDb = 0;
     applyPreset('flat');
+    savePersistedState({ eqPreampDb });
   });
 
   vizEnableToggle.addEventListener('change', () => {
@@ -2656,7 +2783,12 @@
       stopViz();
       npoVizCtx.clearRect(0, 0, npoViz.width, npoViz.height);
     }
+    savePersistedState({ vizEnabled });
   });
+
+  // reflect whatever EQ settings were loaded from storage
+  setActivePreset(savedActivePreset);
+  refreshEqUI();
 
   function openSettings(){
     refreshEqUI();
@@ -2715,9 +2847,13 @@
     shuffleOn = !shuffleOn;
     shuffleBtn.classList.toggle('toggled', shuffleOn);
     npoShuffleBtn.classList.toggle('toggled', shuffleOn);
+    savePersistedState({ shuffleOn });
   }
   shuffleBtn.addEventListener('click', toggleShuffle);
   npoShuffleBtn.addEventListener('click', toggleShuffle);
+  // reflect whatever shuffle state was loaded from storage
+  shuffleBtn.classList.toggle('toggled', shuffleOn);
+  npoShuffleBtn.classList.toggle('toggled', shuffleOn);
 
   const repeatBtn = document.getElementById('repeatBtn');
   const REPEAT_CYCLE = ['off', 'all', 'one'];
@@ -2732,15 +2868,33 @@
   function toggleRepeat(){
     repeatMode = REPEAT_CYCLE[(REPEAT_CYCLE.indexOf(repeatMode) + 1) % REPEAT_CYCLE.length];
     applyRepeatUI();
+    savePersistedState({ repeatMode });
   }
   repeatBtn.addEventListener('click', toggleRepeat);
   npoRepeatBtn.addEventListener('click', toggleRepeat);
+  applyRepeatUI(); // reflect whatever repeat mode was loaded from storage
 
   function toggleHeart(){
     if(currentIndex === null) return;
-    liked.has(currentIndex) ? liked.delete(currentIndex) : liked.add(currentIndex);
+    const nowLiked = !liked.has(currentIndex);
+    nowLiked ? liked.add(currentIndex) : liked.delete(currentIndex);
     syncHeart();
+    if(nowLiked){
+      [npHeart, npoHeart].forEach(btn => {
+        btn.classList.remove('pop');
+        void btn.offsetWidth;
+        btn.classList.add('pop');
+      });
+    }
     renderLibrary(searchInput.value);
+    if(nowLiked){
+      const row = libraryBody.querySelector(`tr[data-track="${currentIndex}"]`);
+      if(row){
+        row.classList.add('flash');
+        row.addEventListener('animationend', () => row.classList.remove('flash'), { once:true });
+      }
+    }
+    savePersistedState({ liked: Array.from(liked) });
   }
   npHeart.addEventListener('click', toggleHeart);
   npoHeart.addEventListener('click', toggleHeart);
@@ -2868,7 +3022,8 @@
   const volTrack = document.getElementById('volTrack');
   const volFill = document.getElementById('volFill');
   const muteBtn = document.getElementById('muteBtn');
-  let lastVolume = 0.8;
+  let lastVolume = (typeof persisted.volume === 'number' && persisted.volume >= 0 && persisted.volume <= 1)
+    ? persisted.volume : 0.8;
   audioEl.volume = lastVolume;
 
   function setVolume(v){
@@ -2886,11 +3041,20 @@
   }
   volTrack.addEventListener('mousedown', (e) => { dragVol = true; volFromEvent(e.clientX); });
   window.addEventListener('mousemove', (e) => { if(dragVol) volFromEvent(e.clientX); });
-  window.addEventListener('mouseup', () => { dragVol = false; });
+  window.addEventListener('mouseup', () => {
+    if(dragVol) savePersistedState({ volume: audioEl.volume });
+    dragVol = false;
+  });
+
+  // also handle volume changes via ArrowUp/ArrowDown keyboard shortcuts
+  window.addEventListener('keyup', (e) => {
+    if(e.code === 'ArrowUp' || e.code === 'ArrowDown') savePersistedState({ volume: audioEl.volume });
+  });
 
   muteBtn.addEventListener('click', () => {
     if(audioEl.volume > 0){ lastVolume = audioEl.volume; setVolume(0); }
     else { setVolume(lastVolume || 0.8); }
+    savePersistedState({ volume: audioEl.volume });
   });
 
   // ---------------- nav + sidebar toggle ----------------
