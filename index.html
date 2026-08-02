@@ -2561,10 +2561,15 @@
       ...opts,
       headers: { 'Authorization': 'Bearer ' + spotifyAccessToken, 'Content-Type': 'application/json', ...(opts.headers||{}) },
     });
-    // Spotify's rate limit (429) is usually a short, self-clearing window —
-    // wait however long Spotify tells us to (capped, so we don't hang forever
-    // on a bad Retry-After) and try again a couple of times before giving up.
     if(res.status === 429 && retriesLeft > 0){
+      // Spotify now distinguishes two different 429s: a short rolling-window
+      // rate limit (worth a quick retry) vs a longer-lived quota exhaustion
+      // ("reason": "QUOTA_EXCEEDED", common for Development Mode apps) that
+      // won't clear in seconds — retrying that immediately just burns more
+      // of the same quota, so don't.
+      let reason = null;
+      try{ reason = (await res.clone().json())?.error?.reason || null; } catch(err){}
+      if(reason === 'QUOTA_EXCEEDED') return res;
       const retryAfterHeader = res.headers.get('Retry-After');
       const waitMs = Math.min((retryAfterHeader ? parseInt(retryAfterHeader, 10) : (3 - retriesLeft)) * 1000, 8000);
       await new Promise(r => setTimeout(r, waitMs));
@@ -2577,9 +2582,10 @@
   // message, e.g. "403: Insufficient client scope") so failures are diagnosable
   // without needing devtools open.
   async function spotifyErrorDetail(res){
-    let detail;
+    let detail, reason;
     try{
       const data = await res.json();
+      reason = data && data.error && data.error.reason;
       detail = (data && data.error)
         ? `${res.status}: ${data.error.message || data.error}`
         : `${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
@@ -2587,8 +2593,12 @@
       detail = `${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
     }
     if(res.status === 429){
-      const retryAfter = res.headers.get('Retry-After');
-      if(retryAfter) detail += ` — wait ~${retryAfter}s and try again`;
+      if(reason === 'QUOTA_EXCEEDED'){
+        detail = "429: this app's Spotify quota is used up for now (common for apps in Development Mode) — try again later";
+      } else {
+        const retryAfter = res.headers.get('Retry-After');
+        if(retryAfter) detail += ` — wait ~${retryAfter}s and try again`;
+      }
     }
     return detail;
   }
@@ -2766,7 +2776,8 @@
   let repeatMode = 'off'; // 'off' | 'all' | 'one'
   let shuffleOn = false;
   let playbackMode = 'local'; // 'local' (audio element) or 'spotify' (Web Playback SDK, full tracks)
-  const liked = new Set();
+  const liked = new Set();          // local demo tracks, keyed by numeric id
+  const likedSpotifyUris = new Set(); // Spotify tracks, keyed by track uri (currentIndex is always null for these)
 
   // ---------------- persistence (localStorage) ----------------
   // Saves the stuff a returning listener would expect to survive a refresh:
@@ -2797,6 +2808,9 @@
   // apply saved liked tracks + crate order now, before anything renders from them
   if(Array.isArray(persisted.liked)){
     persisted.liked.forEach(id => { if(tracks.some(t => t.id === id)) liked.add(id); });
+  }
+  if(Array.isArray(persisted.likedSpotifyUris)){
+    persisted.likedSpotifyUris.forEach(uri => likedSpotifyUris.add(uri));
   }
   if(Array.isArray(persisted.crateOrder) &&
      persisted.crateOrder.length === crateOrder.length &&
@@ -3308,6 +3322,16 @@
   let spotifyRecentTracks = [];
   let spotifyTopTracks = [];
   let usingSpotifyHome = false;
+  let spotifyLibraryRequested = false; // true once we've asked for the Library chart (lazy — see ensureSpotifyLibraryLoaded)
+
+  // Only fetches the "Today's Top Hits" library chart the first time someone
+  // actually navigates to Your Library, instead of on every connect — saves a
+  // chunk of API quota for people who never visit that section.
+  function ensureSpotifyLibraryLoaded(){
+    if(!spotifyAccessToken || spotifyLibraryRequested) return;
+    spotifyLibraryRequested = true;
+    loadSpotifyTopSongs();
+  }
 
   function cardHTMLSpotify(t, i = 0){
     const art = t.album && t.album.images && t.album.images[0] ? t.album.images[0].url : '';
@@ -3716,7 +3740,7 @@
         if(c.kind === 'local') openLocalPlaylist(c.id);
         else if(c.kind === 'spotify') openSpotifyPlaylist(c.id, c.name);
         else if(c.kind === 'demo') playTrack(c.demoTrack);
-        else { clearSearchInput(); renderSearchView(''); document.getElementById('librarySection').scrollIntoView({ behavior:'smooth', block:'start' }); }
+        else { clearSearchInput(); renderSearchView(''); document.getElementById('librarySection').scrollIntoView({ behavior:'smooth', block:'start' }); ensureSpotifyLibraryLoaded(); }
       };
     }
 
@@ -3772,6 +3796,7 @@
         clearSearchInput();
         renderSearchView('');
         document.getElementById('librarySection').scrollIntoView({ behavior:'smooth', block:'start' });
+        ensureSpotifyLibraryLoaded();
         return;
       }
     }
@@ -4202,6 +4227,7 @@
   npoQueueBtn.addEventListener('click', () => {
     closeNowPlaying();
     document.getElementById('librarySection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    ensureSpotifyLibraryLoaded();
     if(currentIndex !== null){
       setTimeout(() => {
         const row = document.querySelector(`.lib-table tr[data-track="${currentIndex}"]`);
@@ -4225,8 +4251,11 @@
   }
 
   function syncHeart(){
-    npHeart.classList.toggle('liked', currentIndex !== null && liked.has(currentIndex));
-    npoHeart.classList.toggle('liked', currentIndex !== null && liked.has(currentIndex));
+    const isLiked = playbackMode === 'spotify'
+      ? !!(currentSpotifyUri && likedSpotifyUris.has(currentSpotifyUri))
+      : (currentIndex !== null && liked.has(currentIndex));
+    npHeart.classList.toggle('liked', isLiked);
+    npoHeart.classList.toggle('liked', isLiked);
   }
 
   function highlightActive(){
@@ -4873,6 +4902,21 @@
   applyRepeatUI(); // reflect whatever repeat mode was loaded from storage
 
   function toggleHeart(){
+    if(playbackMode === 'spotify'){
+      if(!currentSpotifyUri) return;
+      const nowLiked = !likedSpotifyUris.has(currentSpotifyUri);
+      nowLiked ? likedSpotifyUris.add(currentSpotifyUri) : likedSpotifyUris.delete(currentSpotifyUri);
+      syncHeart();
+      if(nowLiked){
+        [npHeart, npoHeart].forEach(btn => {
+          btn.classList.remove('pop');
+          void btn.offsetWidth;
+          btn.classList.add('pop');
+        });
+      }
+      savePersistedState({ likedSpotifyUris: Array.from(likedSpotifyUris) });
+      return;
+    }
     if(currentIndex === null) return;
     const nowLiked = !liked.has(currentIndex);
     nowLiked ? liked.add(currentIndex) : liked.delete(currentIndex);
@@ -5068,6 +5112,7 @@
       }
       const target = document.getElementById(item.dataset.target);
       if(target) target.scrollIntoView({ behavior:'smooth', block:'start' });
+      if(item.dataset.target === 'librarySection') ensureSpotifyLibraryLoaded();
       if(item.dataset.target === 'searchSection'){ searchInput.focus(); }
       sidebar.classList.remove('open');
     });
@@ -5143,6 +5188,12 @@
     spotifyRecentTracks = [];
     spotifyTopTracks = [];
     usingSpotifyHome = false;
+    spotifyLibraryRequested = false;
+    spotifyChartTracks = [];
+    usingSpotifyChart = false;
+    const libTitleEl = document.querySelector('#librarySection .shelf-head h2');
+    if(libTitleEl) libTitleEl.textContent = 'The Crate';
+    renderLibrary();
     renderHomeShelves();
     setConnectButtonState('disconnected');
   }
@@ -5170,8 +5221,11 @@
       // calls in the same instant is what was tripping Spotify's rate limit
       // right after connecting.
       await loadSpotifyPlaylists();
-      await loadSpotifyTopSongs();
       await loadSpotifyHomeShelves();
+      // loadSpotifyTopSongs() (the "Today's Top Hits" library chart) is loaded
+      // lazily now, only once the person actually opens Your Library — see
+      // ensureSpotifyLibraryLoaded() — so connecting doesn't spend quota on a
+      // shelf they might never look at.
     } else {
       setConnectButtonState('disconnected');
     }
