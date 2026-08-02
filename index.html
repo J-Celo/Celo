@@ -478,6 +478,16 @@
     font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
     color:var(--text-faint);
   }
+  #recentModalBody .sr-row{
+    display:flex; align-items:center; gap:12px; padding:9px 4px;
+    cursor:pointer; border-radius:8px; transition:background .12s ease;
+  }
+  #recentModalBody .sr-row:hover{ background:var(--card-hover); }
+  #recentModalBody .sr-thumb{ width:40px; height:40px; border-radius:28%; background-size:cover; background-position:center; flex-shrink:0; }
+  #recentModalBody .sr-meta{ min-width:0; flex:1; }
+  #recentModalBody .sr-meta strong{ display:block; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #recentModalBody .sr-meta small{ color:var(--text-faint); font-size:12px; }
+  #recentModalBody .sr-dur{ font-size:11.5px; color:var(--text-faint); flex-shrink:0; }
   .sr-recent-chip-row{
     display:flex;
     flex-wrap:wrap;
@@ -748,6 +758,20 @@
   .card .play-fab svg{ width:18px; height:18px; margin-left:2px; }
   .card h3{ font-size:14.5px; margin:0 0 6px; font-weight:600; display:flex; align-items:center; gap:7px; }
   .card p{ font-size:12.5px; color:var(--text-faint); margin:0; line-height:1.5; }
+  .card .suggested-badge{
+    position:absolute;
+    top:8px; left:8px;
+    z-index:4;
+    padding:3px 9px;
+    border-radius:20px;
+    font-size:10px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    background:var(--grad);
+    color:#06070C;
+    box-shadow:0 2px 12px rgba(57,245,196,0.4);
+  }
   .card.playing{ background:var(--card-hover); border-color:rgba(57,245,196,0.4); box-shadow:0 0 22px rgba(57,245,196,0.14); }
   .card.playing h3{ color:var(--accent); text-shadow:0 0 12px rgba(57,245,196,0.5); }
   .spin-badge{
@@ -1472,6 +1496,49 @@
   }
   .npo-bottom-row button:hover{ color:var(--text); }
   .npo-bottom-row svg{ width:18px; height:18px; }
+  #npoLyricsBtn.active{ color:var(--accent); }
+  #npoLyricsBtn.active svg{ filter:drop-shadow(0 0 5px rgba(57,245,196,0.5)); }
+
+  /* ================= lyrics panel — replaces the art/vinyl + visualizer
+     while open, in the same flex slot, so the layout doesn't jump ================= */
+  .npo-lyrics{
+    display:none;
+    flex:1 1 auto;
+    min-height:0;
+    width:100%;
+    max-width:440px;
+    margin:0 auto 12px;
+    overflow-y:auto;
+    padding:6px 6px 18px;
+    -webkit-mask-image:linear-gradient(to bottom, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
+    mask-image:linear-gradient(to bottom, transparent 0, black 20px, black calc(100% - 20px), transparent 100%);
+  }
+  .np-overlay.lyrics-open .npo-lyrics{ display:flex; flex-direction:column; }
+  .np-overlay.lyrics-open .npo-art-stage,
+  .np-overlay.lyrics-open .npo-viz{ display:none; }
+  .npo-lyrics-text{
+    margin:auto 0;
+    font-size:16.5px; line-height:1.9; color:var(--text-dim);
+    white-space:pre-wrap; text-align:center; font-family:inherit;
+  }
+  .npo-lyrics-state{
+    margin:auto; text-align:center; color:var(--text-faint); font-size:14px; padding:20px;
+  }
+  .npo-lyrics-source{
+    display:block; margin-top:18px; font-size:11px; color:var(--text-faint); text-align:center;
+  }
+  .npo-lyrics-resume{
+    display:none; position:absolute; left:50%; bottom:calc(14% + 18px); transform:translateX(-50%);
+    background:var(--card); border:1px solid var(--line); color:var(--text);
+    font-size:12px; font-weight:600; padding:7px 14px; border-radius:20px;
+    cursor:pointer; z-index:2; box-shadow:0 4px 14px rgba(0,0,0,0.4);
+  }
+  .npo-lyrics-error-retry{
+    display:inline-block; margin-top:10px; padding:6px 14px; border-radius:16px;
+    background:var(--card); border:1px solid var(--line); color:var(--text);
+    font-size:12px; font-weight:600; cursor:pointer;
+  }
+  .npo-lyrics-error-retry:hover{ background:var(--card-hover); }
 
   .npo-toast{
     position:absolute; left:50%; bottom:calc(14% + 18px);
@@ -1639,6 +1706,18 @@
   }
   .settings-section-head h3{ margin:0 0 4px; font-size:15px; font-weight:700; }
   .settings-hint{ margin:0; font-size:12.5px; color:var(--text-faint); line-height:1.5; max-width:340px; }
+  .settings-hint.local-only-note{ margin-top:8px; display:flex; gap:6px; align-items:flex-start; max-width:none; }
+  .settings-hint.local-only-note svg{ width:14px; height:14px; flex-shrink:0; margin-top:1px; opacity:.8; }
+  .shortcuts-table{ width:100%; border-collapse:collapse; }
+  .shortcuts-table td{ padding:9px 0; border-bottom:1px solid var(--line); font-size:13.5px; color:var(--text-dim); }
+  .shortcuts-table tr:last-child td{ border-bottom:none; }
+  .shortcuts-table td:first-child{ white-space:nowrap; width:1%; padding-right:16px; }
+  kbd{
+    display:inline-block; min-width:22px; padding:3px 7px; text-align:center;
+    background:var(--card); border:1px solid var(--line); border-bottom-width:2px;
+    border-radius:6px; font-family:'JetBrains Mono', monospace; font-size:11.5px;
+    color:var(--text); box-shadow:0 1px 0 rgba(0,0,0,0.3);
+  }
   .settings-row{
     display:flex; align-items:center; justify-content:space-between;
     padding:4px 0;
@@ -2031,6 +2110,9 @@
 
       <div class="topbar-right">
         <button class="spotify-connect-btn" id="spotifyConnectBtn">Connect Spotify</button>
+        <button class="settings-btn" id="shortcutsBtn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </button>
         <button class="settings-btn" id="settingsBtn" aria-label="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span class="settings-dot" id="settingsDot"></span>
@@ -2078,7 +2160,7 @@
       </section>
 
       <section class="shelf" id="jumpBack">
-        <div class="shelf-head"><h2 class="display">Back on the platter</h2><a href="#" tabindex="-1">Show all</a></div>
+        <div class="shelf-head"><h2 class="display">Back on the platter</h2><a href="#" id="recentShowAllBtn">Show all</a></div>
         <div class="card-row" id="jumpBackRow"></div>
       </section>
 
@@ -2088,7 +2170,7 @@
       </section>
 
       <section class="shelf" id="librarySection">
-        <div class="shelf-head"><h2 class="display">The Crate</h2></div>
+        <div class="shelf-head"><h2 class="display">Liked Songs</h2></div>
         <table class="lib-table">
           <thead>
             <tr><th class="idx">Side</th><th>Title</th><th></th><th class="dur">Time</th><th></th></tr>
@@ -2226,7 +2308,7 @@
       </button>
       <div class="npo-context">
         <span class="eyebrow" id="npoEyebrow">Playing from your library</span>
-        <strong id="npoContextName">The Crate</strong>
+        <strong id="npoContextName">Your Library</strong>
       </div>
       <button id="npoMenu" aria-label="More options">
         <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
@@ -2238,6 +2320,11 @@
       <div class="npo-vinyl-wrap"><div class="npo-vinyl" id="npoVinyl"></div></div>
       <div class="npo-toast" id="npoToast">Copied</div>
     </div>
+
+    <div class="npo-lyrics" id="npoLyrics" aria-live="polite">
+      <div class="npo-lyrics-state" id="npoLyricsState">Tap Lyrics to fetch them for this track.</div>
+    </div>
+    <button class="npo-lyrics-resume" id="npoLyricsResume" type="button" style="display:none;">Jump to now</button>
 
     <div class="npo-meta">
       <div class="npo-titles">
@@ -2286,6 +2373,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="10.5" x2="15.4" y2="6.5"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/></svg>
         Share
       </button>
+      <button id="npoLyricsBtn" aria-label="Show lyrics">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg>
+        Lyrics
+      </button>
       <button id="npoQueueBtn" aria-label="Show the crate">
         Queue
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
@@ -2310,6 +2401,10 @@
             <div>
               <h3>Equalizer</h3>
               <p class="settings-hint">Shapes playback in real time — bass, mids, and treble, tuned to taste.</p>
+              <p class="settings-hint local-only-note">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Only affects local demo tracks and preview search — Spotify streams through its own audio pipeline, which the EQ can't reach.</span>
+              </p>
             </div>
             <label class="eq-toggle" aria-label="Enable equalizer">
               <input type="checkbox" id="eqEnableToggle">
@@ -2349,6 +2444,10 @@
               <span class="eq-toggle-track"><span class="eq-toggle-thumb"></span></span>
             </label>
           </div>
+          <p class="settings-hint local-only-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <span>The glow visualizer reacts to real audio, so it's also local/preview-only — it won't animate during full Spotify playback.</span>
+          </p>
         </section>
       </div>
     </div>
@@ -2396,6 +2495,47 @@
     </div>
   </div>
 
+  <!-- ================= RECENTLY PLAYED — full history modal ================= -->
+  <div class="settings-overlay" id="recentOverlay" aria-hidden="true">
+    <div class="settings-backdrop" id="recentBackdrop"></div>
+    <div class="settings-modal" role="dialog" aria-label="Recently played" aria-modal="true" style="max-width:480px;">
+      <div class="settings-head">
+        <h2 class="display">Recently played</h2>
+        <button class="settings-close" id="recentCloseBtn" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-body" id="recentModalBody"></div>
+    </div>
+  </div>
+
+  <!-- ================= KEYBOARD SHORTCUTS — cheat sheet modal ================= -->
+  <div class="settings-overlay" id="shortcutsOverlay" aria-hidden="true">
+    <div class="settings-backdrop" id="shortcutsBackdrop"></div>
+    <div class="settings-modal" role="dialog" aria-label="Keyboard shortcuts" aria-modal="true" style="max-width:420px;">
+      <div class="settings-head">
+        <h2 class="display">Keyboard shortcuts</h2>
+        <button class="settings-close" id="shortcutsCloseBtn" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-body">
+        <table class="shortcuts-table">
+          <tbody>
+            <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+            <tr><td><kbd>&larr;</kbd> / <kbd>&rarr;</kbd></td><td>Seek back / forward 5s</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>&larr;</kbd> / <kbd>&rarr;</kbd></td><td>Previous / next track</td></tr>
+            <tr><td><kbd>&uarr;</kbd> / <kbd>&darr;</kbd></td><td>Volume up / down</td></tr>
+            <tr><td><kbd>M</kbd></td><td>Mute / unmute</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Close any open panel</td></tr>
+            <tr><td><kbd>?</kbd></td><td>Show this cheat sheet</td></tr>
+          </tbody>
+        </table>
+        <p class="settings-hint">Shortcuts are ignored while typing in a text field.</p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -2404,7 +2544,7 @@
   // ================================================================
   const SPOTIFY_CLIENT_ID = '6383cdd789d04c4abeef1a8b2c0b1a8e'; // <-- from developer.spotify.com/dashboard
   const SPOTIFY_REDIRECT_URI = window.location.origin + window.location.pathname;
-  const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative user-top-read user-read-recently-played';
+  const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative user-top-read user-read-recently-played user-library-read user-library-modify';
 
   let spotifyAccessToken = null;
   let spotifyTokenExpiry = 0;
@@ -2549,6 +2689,7 @@
           npoSleeve.style.background = art;
           npoVinyl.style.background = art;
         }
+        if(typeof onTrackChangedForLyrics === 'function') onTrackChangedForLyrics();
       }
       updateSeekUI(state.position, state.duration);
       if(isPlaying){ startSpotifyTicker(); } else { stopSpotifyTicker(); }
@@ -2681,6 +2822,44 @@
     return { tracks, truncated };
   }
 
+  async function spotifyGetSavedTracks(){
+    // the user's *actual* Liked Songs (Your Music), not a curated chart —
+    // pages through up to 300 tracks, which comfortably covers most libraries
+    // without hammering the rate limit for people with huge collections
+    const MAX_TRACKS = 300;
+    let url = '/me/tracks?limit=50';
+    const tracks = [];
+    let truncated = false;
+
+    while(url){
+      const res = await spotifyApi(url);
+      if(!res.ok){
+        const err = new Error('failed to load saved tracks');
+        err.detail = await spotifyErrorDetail(res);
+        err.status = res.status;
+        throw err;
+      }
+      const data = await res.json();
+      for(const item of (data.items || [])){
+        const t = item.track;
+        if(t && t.uri) tracks.push(t);
+        if(tracks.length >= MAX_TRACKS) break;
+      }
+      if(tracks.length >= MAX_TRACKS && data.next){ truncated = true; url = null; break; }
+      url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    }
+
+    return { tracks, truncated };
+  }
+
+  async function spotifySaveTrack(trackId){
+    return spotifyApi(`/me/tracks?ids=${trackId}`, { method: 'PUT' });
+  }
+
+  async function spotifyRemoveSavedTrack(trackId){
+    return spotifyApi(`/me/tracks?ids=${trackId}`, { method: 'DELETE' });
+  }
+
   async function spotifyGetTopTracks(limit = 6){
     // "your most-played tracks recently" — drives the Home page's "Picked for
     // your crate" shelf once connected. Needs the user-top-read scope.
@@ -2690,10 +2869,11 @@
     return (data.items || []).filter(t => t && t.uri);
   }
 
-  async function spotifyGetRecentlyPlayed(limit = 10){
-    // drives the Home page's "Back on the platter" shelf once connected.
-    // Needs the user-read-recently-played scope. The same track can appear
-    // multiple times (repeat listens), so de-dupe down to 6 unique tracks.
+  async function spotifyGetRecentlyPlayed(limit = 20){
+    // drives the Home page's "Back on the platter" shelf (and its full history
+    // view) once connected. Needs the user-read-recently-played scope. The same
+    // track can appear multiple times (repeat listens), so de-dupe down to
+    // `limit` unique tracks.
     const res = await spotifyApi(`/me/player/recently-played?limit=${limit}`);
     if(!res.ok) throw new Error('failed to load recently played');
     const data = await res.json();
@@ -2704,7 +2884,7 @@
       if(!t || !t.uri || seen.has(t.uri)) continue;
       seen.add(t.uri);
       out.push(t);
-      if(out.length >= 6) break;
+      if(out.length >= limit) break;
     }
     return out;
   }
@@ -2838,7 +3018,7 @@
   // the search empty-state list (declared/used further down near search).
   let recentlyPlayed = [];
   if(Array.isArray(persisted.recentlyPlayed)){
-    recentlyPlayed = persisted.recentlyPlayed.filter(id => tracks[id]).slice(0, 6);
+    recentlyPlayed = persisted.recentlyPlayed.filter(id => tracks[id]).slice(0, 20);
   }
   let recentSearches = [];
   if(Array.isArray(persisted.recentSearches)){
@@ -2890,7 +3070,7 @@
   function renderPlaylistSidebar(){
     const crateItem = `<div class="playlist-item liked" data-track="0" style="animation-delay:0ms">
        <div class="thumb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7.5-4.5-9.8-9A5.4 5.4 0 0 1 12 6a5.4 5.4 0 0 1 9.8 6c-2.3 4.5-9.8 9-9.8 9z"/></svg></div>
-       <div class="meta"><strong>The Crate</strong><small>${tracks.length} songs</small></div>
+       <div class="meta"><strong>Liked Songs</strong><small>${liked.size} song${liked.size === 1 ? '' : 's'}</small></div>
      </div>`;
 
     const localItems = localPlaylists.map((p, i) => `
@@ -2999,8 +3179,8 @@
     }
   }
 
-  // deleting a local (user-created) crate/playlist — "The Crate" itself and
-  // Spotify playlists aren't deletable from here (The Crate is the built-in
+  // deleting a local (user-created) crate/playlist — "Liked Songs" itself and
+  // Spotify playlists aren't deletable from here (Liked Songs is the built-in
   // library; Spotify playlists live in the user's Spotify account).
   function deleteLocalPlaylist(id){
     const idx = localPlaylists.findIndex(p => p.id === id);
@@ -3306,10 +3486,11 @@
   cpCreateBtn.addEventListener('click', cpCreatePlaylist);
 
   // ---------------- render: card shelves ----------------
-  function cardHTML(t, i = 0){
+  function cardHTML(t, i = 0, suggested = false){
     return `
       <div class="card" data-track="${t.id}" tabindex="0" style="animation-delay:${Math.min(i,10)*45}ms">
         <div class="art" style="background:${t.art}">
+          ${suggested ? '<span class="suggested-badge">Suggested</span>' : ''}
           <button class="play-fab" aria-label="Play ${t.title}">
             <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </button>
@@ -3322,15 +3503,15 @@
   let spotifyRecentTracks = [];
   let spotifyTopTracks = [];
   let usingSpotifyHome = false;
-  let spotifyLibraryRequested = false; // true once we've asked for the Library chart (lazy — see ensureSpotifyLibraryLoaded)
+  let spotifyLibraryRequested = false; // true once we've asked for Your Library (lazy — see ensureSpotifyLibraryLoaded)
 
-  // Only fetches the "Today's Top Hits" library chart the first time someone
+  // Only fetches the person's real Liked Songs the first time someone
   // actually navigates to Your Library, instead of on every connect — saves a
   // chunk of API quota for people who never visit that section.
   function ensureSpotifyLibraryLoaded(){
     if(!spotifyAccessToken || spotifyLibraryRequested) return;
     spotifyLibraryRequested = true;
-    loadSpotifyTopSongs();
+    loadSpotifyLibrary();
   }
 
   function cardHTMLSpotify(t, i = 0){
@@ -3358,10 +3539,19 @@
     if(!recentRow || !topRow) return;
 
     if(usingSpotifyHome && spotifyRecentTracks.length){
-      recentRow.innerHTML = spotifyRecentTracks.map(cardHTMLSpotify).join('');
+      recentRow.innerHTML = spotifyRecentTracks.slice(0, 6).map(cardHTMLSpotify).join('');
     } else {
-      const recentTracks = recentlyPlayed.map(id => tracks[id]).filter(Boolean);
-      recentRow.innerHTML = (recentTracks.length ? recentTracks : tracks.slice(0,6)).map(cardHTML).join('');
+      const recentTracks = recentlyPlayed.slice(0, 6).map(id => tracks[id]).filter(Boolean);
+      const shelfTracks = recentTracks.length ? recentTracks.slice() : tracks.slice(0,6);
+      // Row looks sparse with only a couple of recently-played cards — fill the
+      // gap with one suggested track (something not already in the row) instead
+      // of leaving empty space.
+      let suggestedId = null;
+      if(recentTracks.length && recentTracks.length < 4){
+        const suggestion = tracks.find(t => !shelfTracks.some(st => st.id === t.id));
+        if(suggestion){ shelfTracks.push(suggestion); suggestedId = suggestion.id; }
+      }
+      recentRow.innerHTML = shelfTracks.map((t, i) => cardHTML(t, i, t.id === suggestedId)).join('');
     }
 
     if(usingSpotifyHome && spotifyTopTracks.length){
@@ -3373,7 +3563,7 @@
         .sort((a, b) => playCounts[b] - playCounts[a] || (recentlyPlayed.indexOf(a) - recentlyPlayed.indexOf(b)))
         .slice(0, 6)
         .map(id => tracks[id]);
-      topRow.innerHTML = (playedIds.length ? playedIds : [...tracks].reverse().slice(0,6)).map(cardHTML).join('');
+      topRow.innerHTML = (playedIds.length ? playedIds : [...tracks].reverse().slice(0,6)).map((t, i) => cardHTML(t, i)).join('');
     }
   }
   renderHomeShelves();
@@ -3381,10 +3571,10 @@
   // Fetches real "recently played" / "top tracks" data from Spotify and swaps
   // the Home shelves over to it. Leaves the demo picks in place on failure.
   async function loadSpotifyHomeShelves(){
-    const recent = await spotifyGetRecentlyPlayed(10).catch(err => { console.warn('Could not load Spotify recently played:', err); return []; });
+    const recent = await spotifyGetRecentlyPlayed(20).catch(err => { console.warn('Could not load Spotify recently played:', err); return []; });
     const top = await spotifyGetTopTracks(6).catch(err => { console.warn('Could not load Spotify top tracks:', err); return []; });
     if(recent.length || top.length){
-      spotifyRecentTracks = recent.slice(0, 6);
+      spotifyRecentTracks = recent;
       spotifyTopTracks = top;
       usingSpotifyHome = true;
       renderHomeShelves();
@@ -3431,16 +3621,12 @@
   }
   function renderLibrary(filter=''){
     const f = filter.trim().toLowerCase();
-    const ordered = crateOrder.map(id => tracks[id]).filter(Boolean);
+    const ordered = crateOrder.map(id => tracks[id]).filter(t => t && liked.has(t.id));
     const rows = ordered.filter(t => !f || t.title.toLowerCase().includes(f) || t.artist.toLowerCase().includes(f));
-    const dragEnabled = !f; // only allow reordering the unfiltered, full crate
-    libraryBody.innerHTML = rows.map(t => `
+    libraryBody.innerHTML = rows.map((t, i) => `
       <tr data-track="${t.id}" class="${currentIndex===t.id ? 'playing':''}">
         <td class="idx">
-          ${dragEnabled ? `<span class="drag-handle" title="Drag to reorder">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>
-          </span>` : ''}
-          <span class="idx-label">${sideLabel(t.id)}</span>
+          <span class="idx-label">${i + 1}</span>
         </td>
         <td colspan="2">
           <div class="title-cell">
@@ -3461,15 +3647,15 @@
     if(!rows.length){
       const emptyChipsEl = document.getElementById('emptyChips');
       if(f){
-        document.getElementById('emptyCopy').innerHTML = `<p class="empty-title display">Skipped a groove.</p><p class="empty-sub">Nothing in the crate matches <span class="mono">&ldquo;${escapeHtml(filter.trim())}&rdquo;</span></p>`;
+        document.getElementById('emptyCopy').innerHTML = `<p class="empty-title display">Skipped a groove.</p><p class="empty-sub">Nothing in Liked Songs matches <span class="mono">&ldquo;${escapeHtml(filter.trim())}&rdquo;</span></p>`;
         const picks = [...ordered].sort(() => Math.random() - 0.5).slice(0, 3);
         emptyChipsEl.innerHTML = picks.length
           ? '<span class="empty-chips-label">Try instead —</span>' + picks.map(t =>
               `<button type="button" class="empty-chip" data-chip-track="${t.id}">${escapeHtml(t.title)}</button>`).join('')
           : '';
       } else {
-        document.getElementById('emptyCopy').innerHTML = `<p class="empty-title display">Crate's empty.</p><p class="empty-sub">Nothing here yet — start a new one to fill it up.</p>`;
-        emptyChipsEl.innerHTML = `<button type="button" class="empty-chip empty-chip-cta" id="emptyCrateCta">+ Create a crate</button>`;
+        document.getElementById('emptyCopy').innerHTML = `<p class="empty-title display">Nothing liked yet.</p><p class="empty-sub">Tap the heart on any song to save it here.</p>`;
+        emptyChipsEl.innerHTML = '';
       }
     }
   }
@@ -3570,6 +3756,8 @@
       }
       if(id === currentIndex) syncHeart();
       savePersistedState({ liked: Array.from(liked) });
+      renderPlaylistSidebar();
+      if(!nowLiked) renderLibrary(searchInput.value); // this view is Liked Songs — unliking removes the row
       return;
     }
     const row = e.target.closest('tr');
@@ -3616,7 +3804,7 @@
   }
 
   function collectCrateCandidates(){
-    const items = [{ kind:'builtin', name:'The Crate', count:tracks.length }];
+    const items = [{ kind:'builtin', name:'Liked Songs', count:liked.size }];
     localPlaylists.forEach(p => items.push({ kind:'local', id:p.id, name:p.name, count:p.tracks.length, paletteIdx:p.paletteIdx }));
     if(spotifyPlaylists.length){
       spotifyPlaylists.forEach(p => items.push({ kind:'spotify', id:p.id, name:p.name, count:p.tracks.total, image:p.images && p.images[0] ? p.images[0].url : '' }));
@@ -3685,11 +3873,10 @@
 
     if(!svHasSongs && !svHasArtists && !svHasCrates){
       svEmpty.style.display = 'flex';
-      svEmptyCopy.innerHTML = `<p class="empty-title display">Skipped a groove.</p><p class="empty-sub">Nothing turned up for <span class="mono">&ldquo;${escapeHtml(f)}&rdquo;</span></p>`;
-      const picks = [...tracks].sort(() => Math.random() - 0.5).slice(0, 3);
-      svEmptyChips.innerHTML = '<span class="empty-chips-label">Try instead —</span>' + picks.map(t =>
-        `<button type="button" class="empty-chip" data-chip-track="${t.id}">${escapeHtml(t.title)}</button>`).join('');
+      svEmptyCopy.innerHTML = `<p class="empty-title display">Checking further…</p><p class="empty-sub">Looking for <span class="mono">&ldquo;${escapeHtml(f)}&rdquo;</span> in the full catalog</p>`;
+      svEmptyChips.innerHTML = '';
       applySvVisibility();
+      loadCatalogFallback(f);
       return;
     }
     svEmpty.style.display = 'none';
@@ -3755,6 +3942,120 @@
     applySvVisibility();
   }
 
+  // ---------------- catalog fallback ----------------
+  // The local demo library is only 8 fake instrumental tracks, so a real song
+  // search almost always misses it. Rather than dead-ending there, fall
+  // through to a real catalog search — Spotify's if connected, otherwise the
+  // same iTunes preview search the search-bar dropdown already uses — so an
+  // actual match ("finding hope" by a real artist, say) still turns up
+  // something playable instead of just suggestion chips.
+  let svCatalogResults = [];
+  let svCatalogToken = 0;
+  let svCatalogAbort = null;
+
+  function svCatalogRowHTML(item, i){
+    const heart = item.kind === 'spotify'
+      ? `<button class="heart-btn ${likedSpotifyUris.has(item.uri) ? 'liked' : ''}" data-catalog-heart="${i}" aria-label="Save">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>`
+      : '';
+    return `
+      <div class="sv-song-row" data-catalog-idx="${i}" tabindex="0">
+        <div class="thumb" style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"></div>
+        <div class="meta"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.artist)}</small></div>
+        <div class="dur mono">${fmtTime(item.dur)}</div>
+        ${heart}
+      </div>`;
+  }
+
+  function playCatalogItem(item){
+    if(item.kind === 'spotify'){
+      const spotifyItems = svCatalogResults.filter(i => i.kind === 'spotify').map(i => i.raw);
+      const queueIdx = spotifyItems.findIndex(t => t.uri === item.uri);
+      spotifyQueue = spotifyItems;
+      spotifyContextName = 'Live search';
+      playSpotifyTrack(item.raw, queueIdx);
+    } else {
+      playTrackObj({
+        title: item.title,
+        artist: item.artist,
+        art: item.thumb ? `url('${item.thumb}') center/cover no-repeat` : palette[0],
+        src: item.raw.previewUrl,
+        dur: item.dur
+      }, null);
+    }
+  }
+
+  async function loadCatalogFallback(query){
+    const myToken = ++svCatalogToken;
+    if(svCatalogAbort) svCatalogAbort.abort();
+    svCatalogAbort = new AbortController();
+    let items = [];
+    let networkFailed = false;
+
+    if(spotifyAccessToken){
+      try{
+        const spItems = await spotifySearch(query);
+        items = spItems.map(t => ({
+          kind:'spotify', raw:t, uri:t.uri,
+          title:t.name, artist:t.artists.map(a => a.name).join(', '),
+          thumb:(t.album && t.album.images[2]) ? t.album.images[2].url : ((t.album && t.album.images[0]) ? t.album.images[0].url : ''),
+          dur:t.duration_ms/1000
+        }));
+      } catch(err){ /* fall through to iTunes preview search below */ }
+    }
+
+    if(!items.length){
+      try{
+        const url = 'https://itunes.apple.com/search?media=music&limit=8&term=' + encodeURIComponent(query);
+        const res = await fetch(url, { signal:svCatalogAbort.signal });
+        if(res.ok){
+          const data = await res.json();
+          items = (data.results || []).filter(r => r.previewUrl).map(r => ({
+            kind:'preview', raw:r,
+            title:r.trackName || 'Unknown title', artist:r.artistName || 'Unknown artist',
+            thumb:(r.artworkUrl100 || '').replace('100x100','400x400'),
+            dur:r.trackTimeMillis ? r.trackTimeMillis/1000 : 30
+          }));
+        } else {
+          networkFailed = true;
+        }
+      } catch(err){
+        if(err.name !== 'AbortError') networkFailed = true; // AbortError expected if the person kept typing — ignore
+      }
+    }
+
+    // drop this response if a newer search has started, or the box no longer holds this query
+    if(myToken !== svCatalogToken || query !== searchInput.value.trim()) return;
+    svCatalogResults = items;
+
+    if(items.length){
+      svEmpty.style.display = 'none';
+      svHasSongs = true;
+      svSongsBody.innerHTML = items.map(svCatalogRowHTML).join('');
+      applySvVisibility();
+      return;
+    }
+
+    if(networkFailed){
+      svEmptyCopy.innerHTML = `<p class="empty-title display">Couldn't reach the catalog.</p><p class="empty-sub">Check your connection and try again.</p>`;
+      svEmptyChips.innerHTML = `<button type="button" class="empty-chip" id="svCatalogRetryBtn">Retry</button>`;
+      const retryBtn = document.getElementById('svCatalogRetryBtn');
+      if(retryBtn) retryBtn.addEventListener('click', () => loadCatalogFallback(query));
+      return;
+    }
+
+    svEmptyCopy.innerHTML = `<p class="empty-title display">Skipped a groove.</p><p class="empty-sub">Nothing turned up for <span class="mono">&ldquo;${escapeHtml(query)}&rdquo;</span> — locally or on the catalog</p>`;
+    const likedPicks = Array.from(liked).map(id => tracks[id]).filter(Boolean);
+    const recentPicks = recentlyPlayed.map(id => tracks[id]).filter(Boolean);
+    const pool = likedPicks.length ? likedPicks : (recentPicks.length ? recentPicks : tracks);
+    const picks = [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
+    const label = likedPicks.length ? 'From your Liked Songs —' : (recentPicks.length ? 'Recently played —' : 'Try instead —');
+    svEmptyChips.innerHTML = `<span class="empty-chips-label">${label}</span>`
+      + picks.map(t => `<button type="button" class="empty-chip" data-chip-track="${t.id}">${escapeHtml(t.title)}</button>`).join('')
+      + `<button type="button" class="empty-chip" id="svBrowseAllBtn">Browse all songs</button>`;
+  }
+
   svTabs.addEventListener('click', (e) => {
     const btn = e.target.closest('.sv-tab');
     if(!btn) return;
@@ -3772,10 +4073,53 @@
     const heart = e.target.closest('[data-heart]');
     if(heart){
       const id = parseInt(heart.dataset.heart, 10);
-      if(liked.has(id)) liked.delete(id); else liked.add(id);
+      const nowLiked = !liked.has(id);
+      nowLiked ? liked.add(id) : liked.delete(id);
       heart.classList.toggle('liked');
+      if(nowLiked){
+        heart.classList.remove('pop');
+        void heart.offsetWidth; // restart animation if clicked again quickly
+        heart.classList.add('pop');
+      }
       if(id === currentIndex) syncHeart();
       savePersistedState({ liked:Array.from(liked) });
+      renderPlaylistSidebar();
+      renderLibrary(searchInput.value); // instantly reflect the change in Liked Songs, not just on the next unrelated re-render
+      return;
+    }
+
+    const catalogHeart = e.target.closest('[data-catalog-heart]');
+    if(catalogHeart){
+      const idx = parseInt(catalogHeart.dataset.catalogHeart, 10);
+      const item = svCatalogResults[idx];
+      if(item && item.kind === 'spotify'){
+        const nowLiked = !likedSpotifyUris.has(item.uri);
+        nowLiked ? likedSpotifyUris.add(item.uri) : likedSpotifyUris.delete(item.uri);
+        catalogHeart.classList.toggle('liked');
+        if(nowLiked){
+          catalogHeart.classList.remove('pop');
+          void catalogHeart.offsetWidth;
+          catalogHeart.classList.add('pop');
+        }
+        savePersistedState({ likedSpotifyUris:Array.from(likedSpotifyUris) });
+        renderPlaylistSidebar();
+      }
+      return;
+    }
+
+    const catalogRow = e.target.closest('[data-catalog-idx]');
+    if(catalogRow){
+      const item = svCatalogResults[parseInt(catalogRow.dataset.catalogIdx, 10)];
+      if(item) playCatalogItem(item);
+      return;
+    }
+
+    const browseAllBtn = e.target.closest('#svBrowseAllBtn');
+    if(browseAllBtn){
+      clearSearchInput();
+      renderSearchView('');
+      document.getElementById('librarySection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+      ensureSpotifyLibraryLoaded();
       return;
     }
 
@@ -3885,7 +4229,7 @@
   // ---------------- recently played (drives the empty-search-state list + "Back on the platter") ----------------
   function pushRecentlyPlayed(id){
     if(id == null) return;
-    recentlyPlayed = [id, ...recentlyPlayed.filter(x => x !== id)].slice(0, 6);
+    recentlyPlayed = [id, ...recentlyPlayed.filter(x => x !== id)].slice(0, 20);
     playCounts[id] = (playCounts[id] || 0) + 1;
     savePersistedState({ recentlyPlayed, playCounts });
     renderHomeShelves();
@@ -4069,6 +4413,8 @@
   const npoNextBtn = document.getElementById('npoNextBtn');
   const npoRepeatBtn = document.getElementById('npoRepeatBtn');
   const npoShareBtn = document.getElementById('npoShareBtn');
+  const npoLyricsBtn = document.getElementById('npoLyricsBtn');
+  const npoLyrics = document.getElementById('npoLyrics');
   const npoQueueBtn = document.getElementById('npoQueueBtn');
   const npoToast = document.getElementById('npoToast');
   const npoViz = document.getElementById('npoViz');
@@ -4224,6 +4570,135 @@
       showNpoToast(text);
     }
   });
+  // ---------------- lyrics panel ----------------
+  // Fetched live from lyrics.ovh (a free, keyless lyrics lookup) for whatever
+  // track is currently playing — nothing is bundled or hardcoded here, since
+  // the demo library tracks are instrumental placeholders with made-up names
+  // and wouldn't have real lyrics anyway. Real song/artist names (from search
+  // or Spotify) are what actually turn up results.
+  const lyricsCache = new Map(); // "artist|||title" (lowercased) -> string | null (confirmed no lyrics)
+  let lyricsRequestToken = 0;
+  function lyricsKeyFor(artist, title){ return `${artist}|||${title}`.trim().toLowerCase(); }
+
+  async function fetchLyricsFor(artist, title){
+    const key = lyricsKeyFor(artist, title);
+    if(lyricsCache.has(key)) return lyricsCache.get(key);
+    try{
+      const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+      if(res.status === 404){ lyricsCache.set(key, null); return null; }
+      if(!res.ok) return undefined; // transient error — don't cache, allow retry
+      const data = await res.json();
+      const text = data && data.lyrics ? data.lyrics.trim() : null;
+      lyricsCache.set(key, text || null);
+      return text || null;
+    } catch(err){
+      console.warn('Lyrics fetch failed:', err);
+      return undefined;
+    }
+  }
+
+  function setLyricsPanel(html){
+    npoLyrics.innerHTML = html;
+  }
+  function lyricsLoadingHTML(){
+    return `<div class="npo-lyrics-state" id="npoLyricsState">Fetching lyrics…</div>`;
+  }
+  function lyricsEmptyHTML(msg){
+    return `<div class="npo-lyrics-state" id="npoLyricsState">${escapeHtml(msg)}</div>`;
+  }
+  function lyricsErrorHTML(msg){
+    return `<div class="npo-lyrics-state" id="npoLyricsState">${escapeHtml(msg)}<br><button type="button" class="npo-lyrics-error-retry" id="npoLyricsRetryBtn">Retry</button></div>`;
+  }
+  function lyricsTextHTML(text){
+    // textContent (not innerHTML) below avoids treating fetched lyrics as markup
+    return `<p class="npo-lyrics-text" id="npoLyricsTextEl"></p><span class="npo-lyrics-source">Lyrics via lyrics.ovh</span>`;
+  }
+
+  // ---- auto-scroll: follows playback position proportionally through the lyrics
+  // text (lyrics.ovh has no per-line timing data, so this is a smooth proportional
+  // follow rather than word-perfect sync — still a big step up from a static block).
+  // Pauses the moment the person scrolls manually, with a pill to jump back to live.
+  let lyricsAutoFollow = true;
+  let lyricsScrollRafId = null;
+  const npoLyricsResume = document.getElementById('npoLyricsResume');
+
+  function lyricsScrollLoop(){
+    if(!npOverlay.classList.contains('lyrics-open')){ lyricsScrollRafId = null; return; }
+    if(lyricsAutoFollow){
+      const textEl = document.getElementById('npoLyricsTextEl');
+      if(textEl){
+        const max = npoLyrics.scrollHeight - npoLyrics.clientHeight;
+        if(max > 0){
+          const durMs = currentTrackDurationMs();
+          const ratio = durMs ? Math.min(1, Math.max(0, currentTrackPositionMs() / durMs)) : 0;
+          npoLyrics.scrollTop = max * ratio;
+        }
+      }
+    }
+    lyricsScrollRafId = requestAnimationFrame(lyricsScrollLoop);
+  }
+  function startLyricsAutoScroll(){
+    lyricsAutoFollow = true;
+    npoLyricsResume.style.display = 'none';
+    if(lyricsScrollRafId === null) lyricsScrollRafId = requestAnimationFrame(lyricsScrollLoop);
+  }
+  function stopLyricsAutoScroll(){
+    if(lyricsScrollRafId !== null){ cancelAnimationFrame(lyricsScrollRafId); lyricsScrollRafId = null; }
+    npoLyricsResume.style.display = 'none';
+  }
+  function pauseLyricsAutoFollow(){
+    if(!document.getElementById('npoLyricsTextEl')) return; // only relevant while actual lyrics are shown
+    lyricsAutoFollow = false;
+    npoLyricsResume.style.display = 'block';
+  }
+  npoLyrics.addEventListener('wheel', pauseLyricsAutoFollow, { passive:true });
+  npoLyrics.addEventListener('touchmove', pauseLyricsAutoFollow, { passive:true });
+  npoLyricsResume.addEventListener('click', () => { lyricsAutoFollow = true; npoLyricsResume.style.display = 'none'; });
+
+  async function loadLyricsForCurrentTrack(){
+    if(!npOverlay.classList.contains('lyrics-open')) return;
+    const artist = npoArtist.textContent, title = npoTitle.textContent;
+    stopLyricsAutoScroll();
+    if(!title || title === 'Choose a track'){
+      setLyricsPanel(lyricsEmptyHTML('Play something to see its lyrics.'));
+      return;
+    }
+    const key = lyricsKeyFor(artist, title);
+    if(lyricsCache.has(key)){
+      const cached = lyricsCache.get(key);
+      if(cached){ setLyricsPanel(lyricsTextHTML()); npoLyrics.querySelector('#npoLyricsTextEl').textContent = cached; startLyricsAutoScroll(); }
+      else setLyricsPanel(lyricsEmptyHTML('No lyrics found for this track.'));
+      return;
+    }
+    setLyricsPanel(lyricsLoadingHTML());
+    const myToken = ++lyricsRequestToken;
+    const text = await fetchLyricsFor(artist, title);
+    if(myToken !== lyricsRequestToken) return; // track changed while this was in flight — drop stale result
+    if(text === undefined){
+      setLyricsPanel(lyricsErrorHTML("Couldn't load lyrics right now."));
+      const retryBtn = document.getElementById('npoLyricsRetryBtn');
+      if(retryBtn) retryBtn.addEventListener('click', () => loadLyricsForCurrentTrack());
+      return;
+    }
+    if(text){ setLyricsPanel(lyricsTextHTML()); npoLyrics.querySelector('#npoLyricsTextEl').textContent = text; startLyricsAutoScroll(); }
+    else setLyricsPanel(lyricsEmptyHTML('No lyrics found for this track.'));
+  }
+
+  // called whenever the playing track changes, whether or not the panel is open —
+  // this just invalidates any in-flight fetch and refreshes the panel if it's visible
+  function onTrackChangedForLyrics(){
+    lyricsRequestToken++;
+    if(npOverlay.classList.contains('lyrics-open')) loadLyricsForCurrentTrack();
+  }
+
+  npoLyricsBtn.addEventListener('click', () => {
+    const opening = !npOverlay.classList.contains('lyrics-open');
+    npOverlay.classList.toggle('lyrics-open', opening);
+    npoLyricsBtn.classList.toggle('active', opening);
+    if(opening) loadLyricsForCurrentTrack();
+    else stopLyricsAutoScroll();
+  });
+
   npoQueueBtn.addEventListener('click', () => {
     closeNowPlaying();
     document.getElementById('librarySection')?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -4247,7 +4722,7 @@
       return;
     }
     npoEyebrow.textContent = 'Playing from your library';
-    npoContextName.textContent = 'The Crate';
+    npoContextName.textContent = 'Your Library';
   }
 
   function syncHeart(){
@@ -4314,7 +4789,7 @@
     tvTitleText.textContent = npTitle.textContent;
     tvArtist.textContent = npArtist.textContent;
     tvDuration.textContent = durTimeEl.textContent;
-    tvEyebrow.textContent = playbackMode === 'spotify' ? 'Track • Spotify' : 'Track • The Crate';
+    tvEyebrow.textContent = playbackMode === 'spotify' ? 'Track • Spotify' : 'Track • Your Library';
     const isLiked = npHeart.classList.contains('liked');
     tvHeart.classList.toggle('liked', isLiked);
     tvTableBody.innerHTML = `
@@ -4386,6 +4861,7 @@
     syncHeart();
     highlightActive();
     currentSpotifyUri = track.uri;
+    onTrackChangedForLyrics();
     if(usingSpotifyChart) renderSpotifyLibraryRows();
     if(typeof queueDrawer !== 'undefined' && queueDrawer.classList.contains('open')) renderQueueDrawer();
     isPlaying = true;
@@ -4448,6 +4924,7 @@
     updateNpoContext();
     syncHeart();
     highlightActive();
+    onTrackChangedForLyrics();
     if(typeof queueDrawer !== 'undefined' && queueDrawer.classList.contains('open')) renderQueueDrawer();
     if(switchingWhilePlaying){
       fadeToNewTrack(t.src);
@@ -4740,6 +5217,82 @@
     if(e.key === 'Escape' && settingsOverlay.classList.contains('open')) closeSettings();
   });
 
+  // ---------------- recently played — full history modal ----------------
+  const recentOverlay = document.getElementById('recentOverlay');
+  const recentModalBody = document.getElementById('recentModalBody');
+  const recentBackdrop = document.getElementById('recentBackdrop');
+  const recentCloseBtn = document.getElementById('recentCloseBtn');
+  const recentShowAllBtn = document.getElementById('recentShowAllBtn');
+
+  function renderRecentModal(){
+    if(usingSpotifyHome && spotifyRecentTracks.length){
+      recentModalBody.innerHTML = spotifyRecentTracks.map((t, i) => `
+        <div class="sr-row" data-recent-spotify-idx="${i}">
+          <div class="sr-thumb" style="background-image:url('${(t.album && t.album.images[2]) ? t.album.images[2].url : ((t.album && t.album.images[0]) ? t.album.images[0].url : '')}');background-size:cover;background-position:center;"></div>
+          <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
+          <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
+        </div>`).join('');
+      return;
+    }
+    const rows = recentlyPlayed.map(id => tracks[id]).filter(Boolean);
+    if(!rows.length){
+      recentModalBody.innerHTML = `<p class="settings-hint">Nothing played yet — your history shows up here once you play something.</p>`;
+      return;
+    }
+    recentModalBody.innerHTML = rows.map(t => `
+      <div class="sr-row" data-recent-id="${t.id}">
+        <div class="sr-thumb" style="background:${t.art}"></div>
+        <div class="sr-meta"><strong>${escapeHtml(t.title)}</strong><small>${escapeHtml(t.artist)}</small></div>
+        <div class="sr-dur">${fmtTime(t.dur)}</div>
+      </div>`).join('');
+  }
+  function openRecentModal(){
+    renderRecentModal();
+    recentOverlay.classList.add('open');
+    recentOverlay.setAttribute('aria-hidden', 'false');
+  }
+  function closeRecentModal(){
+    recentOverlay.classList.remove('open');
+    recentOverlay.setAttribute('aria-hidden', 'true');
+  }
+  recentShowAllBtn.addEventListener('click', (e) => { e.preventDefault(); openRecentModal(); });
+  recentCloseBtn.addEventListener('click', closeRecentModal);
+  recentBackdrop.addEventListener('click', closeRecentModal);
+  recentModalBody.addEventListener('click', (e) => {
+    const spRow = e.target.closest('[data-recent-spotify-idx]');
+    if(spRow){
+      const idx = parseInt(spRow.dataset.recentSpotifyIdx, 10);
+      const t = spotifyRecentTracks[idx];
+      if(t){ spotifyQueue = spotifyRecentTracks; spotifyContextName = 'Recently played'; playSpotifyTrack(t, idx); closeRecentModal(); }
+      return;
+    }
+    const row = e.target.closest('[data-recent-id]');
+    if(row){ playTrack(parseInt(row.dataset.recentId, 10)); closeRecentModal(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && recentOverlay.classList.contains('open')) closeRecentModal();
+  });
+
+  // ---------------- keyboard shortcuts cheat sheet ----------------
+  const shortcutsOverlay = document.getElementById('shortcutsOverlay');
+  const shortcutsBackdrop = document.getElementById('shortcutsBackdrop');
+  const shortcutsCloseBtn = document.getElementById('shortcutsCloseBtn');
+  const shortcutsBtn = document.getElementById('shortcutsBtn');
+  function openShortcuts(){
+    shortcutsOverlay.classList.add('open');
+    shortcutsOverlay.setAttribute('aria-hidden', 'false');
+  }
+  function closeShortcuts(){
+    shortcutsOverlay.classList.remove('open');
+    shortcutsOverlay.setAttribute('aria-hidden', 'true');
+  }
+  shortcutsBtn.addEventListener('click', openShortcuts);
+  shortcutsCloseBtn.addEventListener('click', closeShortcuts);
+  shortcutsBackdrop.addEventListener('click', closeShortcuts);
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && shortcutsOverlay.classList.contains('open')) closeShortcuts();
+  });
+
   function handlePlayClick(){
     if(playbackMode === 'local' && currentIndex === null){ playTrack(crateOrder[0]); return; }
     setPlaying(!isPlaying);
@@ -4937,6 +5490,7 @@
       }
     }
     savePersistedState({ liked: Array.from(liked) });
+    renderPlaylistSidebar();
   }
   npHeart.addEventListener('click', toggleHeart);
   npoHeart.addEventListener('click', toggleHeart);
@@ -5171,6 +5725,9 @@
       case 'KeyM':
         muteBtn.click();
         break;
+      case 'Slash':
+        if(e.shiftKey){ e.preventDefault(); openShortcuts(); }
+        break;
     }
   });
 
@@ -5191,8 +5748,10 @@
     spotifyLibraryRequested = false;
     spotifyChartTracks = [];
     usingSpotifyChart = false;
+    spotifyLibraryIsReal = false;
+    spotifySavedUris = new Set();
     const libTitleEl = document.querySelector('#librarySection .shelf-head h2');
-    if(libTitleEl) libTitleEl.textContent = 'The Crate';
+    if(libTitleEl) libTitleEl.textContent = 'Liked Songs';
     renderLibrary();
     renderHomeShelves();
     setConnectButtonState('disconnected');
@@ -5222,8 +5781,8 @@
       // right after connecting.
       await loadSpotifyPlaylists();
       await loadSpotifyHomeShelves();
-      // loadSpotifyTopSongs() (the "Today's Top Hits" library chart) is loaded
-      // lazily now, only once the person actually opens Your Library — see
+      // loadSpotifyLibrary() (the person's real Liked Songs) is loaded lazily
+      // now, only once they actually open Your Library — see
       // ensureSpotifyLibraryLoaded() — so connecting doesn't spend quota on a
       // shelf they might never look at.
     } else {
@@ -5231,35 +5790,92 @@
     }
   })();
 
-  // ---------------- real "top songs" home library (replaces the demo Crate once connected) ----------------
-  // Spotify's own editorially-curated global chart playlist — no special scopes needed, just a normal
-  // playlist read, so this works for any connected account (Premium or free).
-  const SPOTIFY_TOP_HITS_PLAYLIST_ID = '37i9dQZF1DXcBWIGoYBM5M'; // "Today's Top Hits"
-  let spotifyChartTracks = [];
+  // ---------------- Your Library, once connected ----------------
+  // Loads the person's actual Spotify Liked Songs (needs the user-library-read
+  // scope). If they have none saved yet, OR they connected before this scope
+  // existed and haven't re-authorized, we fall back to Spotify's public
+  // "Today's Top Hits" chart — but the title always says exactly what's being
+  // shown, so it's never mislabeled as "Liked Songs" when it isn't.
+  const SPOTIFY_TOP_HITS_PLAYLIST_ID = '37i9dQZF1DXcBWIGoYBM5M'; // "Today's Top Hits" fallback only
+  let spotifyChartTracks = [];      // the tracks currently filling the library table (real or fallback)
   let usingSpotifyChart = false;
+  let spotifyLibraryIsReal = false; // true = these are the person's real Liked Songs; false = fallback chart
+  let spotifySavedUris = new Set(); // uris confirmed saved, so hearts render filled
   let currentSpotifyUri = null;
 
-  async function loadSpotifyTopSongs(){
+  async function loadSpotifyLibrary(){
+    try{
+      const { tracks: saved } = await spotifyGetSavedTracks();
+      if(saved.length){
+        spotifyChartTracks = saved;
+        spotifySavedUris = new Set(saved.map(t => t.uri));
+        spotifyLibraryIsReal = true;
+        usingSpotifyChart = true;
+        spotifyQueue = saved;
+        spotifyQueueIndex = -1;
+        spotifyContextName = 'Liked Songs';
+        renderSpotifyLibraryRows();
+        return;
+      }
+    } catch(err){
+      // missing scope (needs re-login) or request failure — fall through to the chart
+      console.warn('Could not load real Spotify Liked Songs, falling back to Today\'s Top Hits chart:', err && err.detail || err);
+    }
+    // Fallback: no saved tracks yet (or scope not granted) — show the public
+    // chart instead, but label it honestly rather than calling it Liked Songs.
     try{
       const { tracks: chart } = await spotifyGetPlaylistTracks(SPOTIFY_TOP_HITS_PLAYLIST_ID);
       if(!chart.length) return;
       spotifyChartTracks = chart;
+      spotifySavedUris = new Set();
+      spotifyLibraryIsReal = false;
       usingSpotifyChart = true;
       spotifyQueue = chart;
       spotifyQueueIndex = -1;
       spotifyContextName = "Today's Top Hits";
       renderSpotifyLibraryRows();
     } catch(err){
-      console.warn('Could not load Spotify Top Hits — leaving the demo crate in place:', err);
+      console.warn("Could not load Spotify Top Hits either — leaving the demo library in place:", err);
+    }
+  }
+
+  async function toggleSpotifySavedTrack(uri, trackId, heartBtn){
+    const nowSaved = !spotifySavedUris.has(uri);
+    // optimistic UI update
+    nowSaved ? spotifySavedUris.add(uri) : spotifySavedUris.delete(uri);
+    if(heartBtn) heartBtn.classList.toggle('liked', nowSaved);
+    try{
+      const res = nowSaved ? await spotifySaveTrack(trackId) : await spotifyRemoveSavedTrack(trackId);
+      if(!res.ok) throw new Error('save/unsave failed: ' + res.status);
+    } catch(err){
+      // revert on failure
+      nowSaved ? spotifySavedUris.delete(uri) : spotifySavedUris.add(uri);
+      if(heartBtn) heartBtn.classList.toggle('liked', !nowSaved);
+      console.warn('Could not update Spotify Liked Songs:', err);
+      return;
+    }
+    // if we're viewing the real Liked Songs list and a track was unliked, drop its row
+    if(spotifyLibraryIsReal && !nowSaved){
+      spotifyChartTracks = spotifyChartTracks.filter(t => t.uri !== uri);
+      renderSpotifyLibraryRows();
     }
   }
 
   function renderSpotifyLibraryRows(){
     const titleEl = document.querySelector('#librarySection .shelf-head h2');
-    if(titleEl) titleEl.textContent = "Today's Top Hits";
+    if(titleEl) titleEl.textContent = spotifyContextName;
     libraryBody.innerHTML = spotifyChartTracks.map((t, i) => {
       const thumb = t.album && t.album.images[2] ? t.album.images[2].url : (t.album && t.album.images[0] ? t.album.images[0].url : '');
       const playing = playbackMode === 'spotify' && currentSpotifyUri === t.uri;
+      const saved = spotifySavedUris.has(t.uri);
+      // The fallback chart is a public playlist, not "your" saved tracks — Spotify's
+      // library-modify scope only makes sense to expose against the real Liked
+      // Songs list, so the heart only appears there.
+      const heartCell = spotifyLibraryIsReal
+        ? `<button class="heart-btn ${saved ? 'liked':''}" data-spotify-heart="${t.uri}" data-spotify-track-id="${t.id}" aria-label="Save">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+           </button>`
+        : '';
       return `
       <tr data-spotify-idx="${i}" class="${playing ? 'playing':''}">
         <td class="idx"><span class="idx-label">${i+1}</span></td>
@@ -5270,11 +5886,24 @@
           </div>
         </td>
         <td class="dur mono">${fmtTime(t.duration_ms/1000)}</td>
-        <td class="heart-cell"></td>
+        <td class="heart-cell">${heartCell}</td>
       </tr>`;
     }).join('');
-    document.getElementById('emptyState').style.display = spotifyChartTracks.length ? 'none' : 'block';
+    const emptyState = document.getElementById('emptyState');
+    emptyState.style.display = spotifyChartTracks.length ? 'none' : 'block';
+    if(!spotifyChartTracks.length){
+      document.getElementById('emptyCopy').innerHTML = `<p class="empty-title display">Nothing liked yet.</p><p class="empty-sub">Heart a song on Spotify and it'll show up here.</p>`;
+      document.getElementById('emptyChips').innerHTML = '';
+    }
   }
+
+  // delegated click handler for the real-library heart buttons rendered above
+  libraryBody.addEventListener('click', (e) => {
+    const heartBtn = e.target.closest('[data-spotify-heart]');
+    if(!heartBtn) return;
+    e.stopPropagation();
+    toggleSpotifySavedTrack(heartBtn.dataset.spotifyHeart, heartBtn.dataset.spotifyTrackId, heartBtn);
+  });
 </script>
 </body>
 </html>
