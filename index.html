@@ -1623,12 +1623,14 @@
   let spotifyDeviceId = null;
   let spotifyPlayer = null;
   let spotifyReady = false; // true once SDK player is connected & has a device_id
-  let spotifyQueue = [];    // last search results, so next/prev can step through them
+  let spotifyQueue = [];    // last search results (or opened playlist tracks), so next/prev can step through them
   let spotifyQueueIndex = -1;
   let spotifyDurationMs = 0;
   let spotifyPositionMs = 0;
   let spotifyPositionAtMs = 0;
   let spotifyTickerId = null;
+  let spotifyPlaylists = [];        // the user's real playlists, loaded once connected
+  let spotifyContextName = 'Live search'; // label shown in the now-playing overlay eyebrow
 
   function b64urlFromBuffer(buf){
     return btoa(String.fromCharCode(...new Uint8Array(buf)))
@@ -1767,6 +1769,44 @@
     return (data.tracks && data.tracks.items) || [];
   }
 
+  async function spotifyGetUserPlaylists(){
+    // grabs up to 50 playlists (Spotify's per-page max) — enough for the sidebar;
+    // paging further isn't worth the complexity for a sidebar list
+    const res = await spotifyApi('/me/playlists?limit=50');
+    if(!res.ok) throw new Error('failed to load Spotify playlists');
+    const data = await res.json();
+    return (data.items || []).filter(Boolean);
+  }
+
+  async function spotifyGetPlaylistTracks(playlistId){
+    // pages through the full playlist (Spotify caps each page at 100), up to
+    // a sane ceiling so a 3,000-track playlist doesn't hang the UI or blow
+    // through rate limits — local files and non-playable tracks are dropped
+    // since the Web Playback SDK can't stream them
+    const MAX_TRACKS = 500;
+    const fields = encodeURIComponent('next,items(track(name,artists,album,duration_ms,uri,is_local))');
+    let url = `/playlists/${playlistId}/tracks?limit=100&fields=${fields}`;
+    const tracks = [];
+    let truncated = false;
+
+    while(url){
+      const res = await spotifyApi(url);
+      if(!res.ok) throw new Error('failed to load playlist tracks');
+      const data = await res.json();
+      for(const item of (data.items || [])){
+        const t = item.track;
+        if(t && t.uri && !t.is_local) tracks.push(t);
+        if(tracks.length >= MAX_TRACKS) break;
+      }
+      if(tracks.length >= MAX_TRACKS && data.next){ truncated = true; url = null; break; }
+      // `next` comes back as a full https://api.spotify.com/v1/... URL — strip the
+      // prefix so it works with spotifyApi(), which prepends that base itself
+      url = data.next ? data.next.replace('https://api.spotify.com/v1', '') : null;
+    }
+
+    return { tracks, truncated };
+  }
+
   async function spotifyPlayUri(uri){
     if(!spotifyReady) return;
     await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, {
@@ -1873,20 +1913,81 @@
 
   // ---------------- render: sidebar playlists ----------------
   const playlistList = document.getElementById('playlistList');
-  playlistList.innerHTML =
-    `<div class="playlist-item liked" data-track="0">
+
+  function renderPlaylistSidebar(){
+    const crateItem = `<div class="playlist-item liked" data-track="0">
        <div class="thumb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7.5-4.5-9.8-9A5.4 5.4 0 0 1 12 6a5.4 5.4 0 0 1 9.8 6c-2.3 4.5-9.8 9-9.8 9z"/></svg></div>
        <div class="meta"><strong>The Crate</strong><small>${tracks.length} songs</small></div>
-     </div>` +
-    playlists.map((name, i) => `
+     </div>`;
+
+    if(spotifyPlaylists.length){
+      // real playlists, once connected and loaded — replaces the demo list below
+      playlistList.innerHTML = crateItem + spotifyPlaylists.map(p => {
+        const img = p.images && p.images[0] ? p.images[0].url : '';
+        return `
+        <div class="playlist-item" data-spotify-playlist="${p.id}" data-spotify-playlist-name="${escapeHtml(p.name)}" tabindex="0">
+          <div class="thumb" style="${img ? `background-image:url('${img}');background-size:cover;background-position:center;` : `background:${palette[p.id.charCodeAt(0) % palette.length]}`}"></div>
+          <div class="meta"><strong>${escapeHtml(p.name)}</strong><small>${p.tracks.total} songs</small></div>
+        </div>`;
+      }).join('');
+      return;
+    }
+
+    // not connected (or nothing loaded yet) — demo placeholders
+    playlistList.innerHTML = crateItem + playlists.map((name, i) => `
       <div class="playlist-item" data-track="${(i+1) % tracks.length}">
         <div class="thumb" style="background:${palette[(i+2) % palette.length]}"></div>
         <div class="meta"><strong>${name}</strong><small>Playlist</small></div>
       </div>`).join('');
+  }
+  renderPlaylistSidebar();
+
+  async function loadSpotifyPlaylists(){
+    try{
+      spotifyPlaylists = await spotifyGetUserPlaylists();
+      renderPlaylistSidebar();
+    } catch(err){
+      console.warn('Could not load Spotify playlists:', err);
+      // leave the demo sidebar in place — connecting still works for search/playback
+    }
+  }
+
+  async function openSpotifyPlaylist(id, name){
+    sidebar.classList.remove('open'); // close the mobile sidebar once a playlist is picked
+    searchInput.value = '';
+    renderResultsState(`<div class="sr-state is-loading">Loading ${escapeHtml(name)}</div>`);
+    try{
+      const { tracks: items, truncated } = await spotifyGetPlaylistTracks(id);
+      if(!items.length){
+        renderResultsState('<div class="sr-state">This playlist has no playable tracks.</div>');
+        return;
+      }
+      spotifyQueue = items;
+      spotifyContextName = name;
+      const truncatedNote = truncated
+        ? `<div class="sr-state">Showing the first ${items.length} tracks — this playlist has more.</div>`
+        : '';
+      searchResults.innerHTML = truncatedNote + items.map((t, i) => `
+        <div class="sr-row" data-idx="${i}" data-source="spotify">
+          <div class="sr-thumb" style="background-image:url('${t.album.images[2] ? t.album.images[2].url : (t.album.images[0]||{}).url || ''}')"></div>
+          <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
+          <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
+        </div>`).join('');
+      searchResults.classList.add('open');
+      playSpotifyTrack(items[0], 0);
+    } catch(err){
+      renderResultsState('<div class="sr-state">Couldn\'t load that playlist. Try again.</div>');
+    }
+  }
 
   playlistList.addEventListener('click', (e) => {
     const item = e.target.closest('.playlist-item');
     if(!item) return;
+    const spId = item.dataset.spotifyPlaylist;
+    if(spId){
+      openSpotifyPlaylist(spId, item.dataset.spotifyPlaylistName);
+      return;
+    }
     playTrack(parseInt(item.dataset.track, 10));
   });
 
@@ -2114,6 +2215,7 @@
         const spItems = await spotifySearch(query);
         if(!spItems.length){ renderResultsState('<div class="sr-state">No results. Try another search.</div>'); return; }
         spotifyQueue = spItems;
+        spotifyContextName = 'Live search';
         searchResults.innerHTML = spItems.map((t, i) => `
           <div class="sr-row" data-idx="${i}" data-source="spotify">
             <div class="sr-thumb" style="background-image:url('${t.album.images[2] ? t.album.images[2].url : (t.album.images[0]||{}).url || ''}')"></div>
@@ -2410,7 +2512,7 @@
   function updateNpoContext(){
     if(playbackMode === 'spotify'){
       npoEyebrow.textContent = 'Playing from Spotify';
-      npoContextName.textContent = 'Live search';
+      npoContextName.textContent = spotifyContextName;
       return;
     }
     npoEyebrow.textContent = 'Playing from your library';
@@ -3144,6 +3246,7 @@
       // once the SDK script (loaded in <head>) is ready — it reads spotifyAccessToken directly.
       // If the SDK already fired before we got the token, kick it manually:
       if(window.Spotify && !spotifyPlayer) window.onSpotifyWebPlaybackSDKReady();
+      loadSpotifyPlaylists();
     } else {
       setConnectButtonState('disconnected');
     }
