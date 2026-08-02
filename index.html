@@ -2417,6 +2417,10 @@
   let spotifyPositionMs = 0;
   let spotifyPositionAtMs = 0;
   let spotifyTickerId = null;
+  let spotifyExpectedUri = null; // the track URI we most recently asked Spotify to play — used to
+                                  // ignore stale player_state_changed events that still describe
+                                  // the track we're switching away from (fixes the seek bar
+                                  // jumping to the old position/track when skipping next/prev)
   let spotifyPlaylists = [];        // the user's real playlists, loaded once connected
   let spotifyPlaylistsStatus = 'idle'; // 'idle' | 'loading' | 'loaded' | 'error' — drives the modal's list state
   let spotifyContextName = 'Live search'; // label shown in the now-playing overlay eyebrow
@@ -2513,6 +2517,7 @@
       spotifyDeviceId = device_id;
       spotifyReady = true;
       setConnectButtonState('connected');
+      spotifySetRepeat(repeatMode); // make sure the device matches whatever the repeat button already shows
     });
     spotifyPlayer.addListener('not_ready', () => { spotifyReady = false; });
     spotifyPlayer.addListener('initialization_error', ({ message }) => console.error('Spotify init error:', message));
@@ -2520,12 +2525,19 @@
     spotifyPlayer.addListener('account_error', ({ message }) => console.error('Spotify account error (Premium required):', message));
     spotifyPlayer.addListener('player_state_changed', (state) => {
       if(!state || playbackMode !== 'spotify') return;
+      const t = state.track_window.current_track;
+      if(spotifyExpectedUri && (!t || t.uri !== spotifyExpectedUri)){
+        // We just asked Spotify to switch tracks, but this event still describes
+        // the old track (Spotify Connect hasn't caught up yet) — ignore it so the
+        // seek bar/UI doesn't jump backward to the previous track's position.
+        return;
+      }
+      if(t && t.uri === spotifyExpectedUri) spotifyExpectedUri = null; // confirmed switch — stop filtering
       isPlaying = !state.paused;
       spotifyDurationMs = state.duration;
       spotifyPositionMs = state.position;
       spotifyPositionAtMs = Date.now();
       updatePlayIcon(isPlaying);
-      const t = state.track_window.current_track;
       if(t){
         npTitle.textContent = t.name;
         npArtist.textContent = t.artists.map(a => a.name).join(', ');
@@ -2659,6 +2671,13 @@
   async function spotifyPause(){ if(spotifyReady) await spotifyApi(`/me/player/pause?device_id=${spotifyDeviceId}`, { method:'PUT' }); }
   async function spotifyResume(){ if(spotifyReady) await spotifyApi(`/me/player/play?device_id=${spotifyDeviceId}`, { method:'PUT' }); }
   async function spotifySeek(ms){ if(spotifyReady) await spotifyApi(`/me/player/seek?position_ms=${Math.round(ms)}&device_id=${spotifyDeviceId}`, { method:'PUT' }); }
+  // maps our 3-state repeat button to Spotify's own repeat states: off | context (repeat all) | track (repeat one)
+  async function spotifySetRepeat(mode){
+    if(!spotifyReady) return;
+    const state = mode === 'one' ? 'track' : mode === 'all' ? 'context' : 'off';
+    try{ await spotifyApi(`/me/player/repeat?state=${state}&device_id=${spotifyDeviceId}`, { method:'PUT' }); }
+    catch(err){ console.warn('Could not sync repeat mode to Spotify:', err); }
+  }
 
   function startSpotifyTicker(){
     stopSpotifyTicker();
@@ -3437,7 +3456,14 @@
       return;
     }
     const row = e.target.closest('tr');
-    if(row) playTrack(parseInt(row.dataset.track, 10));
+    if(!row) return;
+    if(row.dataset.spotifyIdx !== undefined){
+      const idx = parseInt(row.dataset.spotifyIdx, 10);
+      const t = spotifyChartTracks[idx];
+      if(t){ spotifyQueue = spotifyChartTracks; playSpotifyTrack(t, idx); }
+      return;
+    }
+    playTrack(parseInt(row.dataset.track, 10));
   });
 
   // ---------------- rich search results view ----------------
@@ -4219,6 +4245,7 @@
     playbackMode = 'spotify';
     currentIndex = null;
     spotifyQueueIndex = queueIdx;
+    spotifyExpectedUri = track.uri;
     spotifyDurationMs = track.duration_ms;
     spotifyPositionMs = 0;
     spotifyPositionAtMs = Date.now();
@@ -4236,10 +4263,18 @@
     updateNpoContext();
     syncHeart();
     highlightActive();
+    currentSpotifyUri = track.uri;
+    if(usingSpotifyChart) renderSpotifyLibraryRows();
     if(typeof queueDrawer !== 'undefined' && queueDrawer.classList.contains('open')) renderQueueDrawer();
     isPlaying = true;
     updatePlayIcon(true);
     startSpotifyTicker();
+    // safety net: if we never get a player_state_changed confirming this track
+    // (dropped request, transient error, etc.), stop filtering after a few
+    // seconds so future state updates aren't silently ignored forever.
+    setTimeout(() => {
+      if(spotifyExpectedUri === track.uri) spotifyExpectedUri = null;
+    }, 4000);
     await spotifyPlayUri(track.uri);
   }
 
@@ -4738,6 +4773,7 @@
     repeatMode = REPEAT_CYCLE[(REPEAT_CYCLE.indexOf(repeatMode) + 1) % REPEAT_CYCLE.length];
     applyRepeatUI();
     savePersistedState({ repeatMode });
+    if(playbackMode === 'spotify') spotifySetRepeat(repeatMode);
   }
   repeatBtn.addEventListener('click', toggleRepeat);
   npoRepeatBtn.addEventListener('click', toggleRepeat);
@@ -5034,10 +5070,56 @@
       // If the SDK already fired before we got the token, kick it manually:
       if(window.Spotify && !spotifyPlayer) window.onSpotifyWebPlaybackSDKReady();
       loadSpotifyPlaylists();
+      loadSpotifyTopSongs();
     } else {
       setConnectButtonState('disconnected');
     }
   })();
+
+  // ---------------- real "top songs" home library (replaces the demo Crate once connected) ----------------
+  // Spotify's own editorially-curated global chart playlist — no special scopes needed, just a normal
+  // playlist read, so this works for any connected account (Premium or free).
+  const SPOTIFY_TOP_HITS_PLAYLIST_ID = '37i9dQZF1DXcBWIGoYBM5M'; // "Today's Top Hits"
+  let spotifyChartTracks = [];
+  let usingSpotifyChart = false;
+  let currentSpotifyUri = null;
+
+  async function loadSpotifyTopSongs(){
+    try{
+      const { tracks: chart } = await spotifyGetPlaylistTracks(SPOTIFY_TOP_HITS_PLAYLIST_ID);
+      if(!chart.length) return;
+      spotifyChartTracks = chart;
+      usingSpotifyChart = true;
+      spotifyQueue = chart;
+      spotifyQueueIndex = -1;
+      spotifyContextName = "Today's Top Hits";
+      renderSpotifyLibraryRows();
+    } catch(err){
+      console.warn('Could not load Spotify Top Hits — leaving the demo crate in place:', err);
+    }
+  }
+
+  function renderSpotifyLibraryRows(){
+    const titleEl = document.querySelector('#librarySection .shelf-head h2');
+    if(titleEl) titleEl.textContent = "Today's Top Hits";
+    libraryBody.innerHTML = spotifyChartTracks.map((t, i) => {
+      const thumb = t.album && t.album.images[2] ? t.album.images[2].url : (t.album && t.album.images[0] ? t.album.images[0].url : '');
+      const playing = playbackMode === 'spotify' && currentSpotifyUri === t.uri;
+      return `
+      <tr data-spotify-idx="${i}" class="${playing ? 'playing':''}">
+        <td class="idx"><span class="idx-label">${i+1}</span></td>
+        <td colspan="2">
+          <div class="title-cell">
+            <div class="thumb" style="background-image:url('${thumb}');background-size:cover;background-position:center;"></div>
+            <div><strong><span class="spin-badge" aria-hidden="true"></span>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
+          </div>
+        </td>
+        <td class="dur mono">${fmtTime(t.duration_ms/1000)}</td>
+        <td class="heart-cell"></td>
+      </tr>`;
+    }).join('');
+    document.getElementById('emptyState').style.display = spotifyChartTracks.length ? 'none' : 'block';
+  }
 </script>
 </body>
 </html>
