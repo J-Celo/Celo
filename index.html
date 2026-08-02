@@ -2095,13 +2095,20 @@
   // message, e.g. "403: Insufficient client scope") so failures are diagnosable
   // without needing devtools open.
   async function spotifyErrorDetail(res){
+    let detail;
     try{
       const data = await res.json();
-      if(data && data.error){
-        return `${res.status}: ${data.error.message || data.error}`;
-      }
-    } catch(err){}
-    return `${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
+      detail = (data && data.error)
+        ? `${res.status}: ${data.error.message || data.error}`
+        : `${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
+    } catch(err){
+      detail = `${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
+    }
+    if(res.status === 429){
+      const retryAfter = res.headers.get('Retry-After');
+      if(retryAfter) detail += ` — wait ~${retryAfter}s and try again`;
+    }
+    return detail;
   }
 
   async function spotifySearch(query){
