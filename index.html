@@ -2402,7 +2402,7 @@
   // ================================================================
   // SPOTIFY INTEGRATION — fill in your Client ID (see comment near <head>)
   // ================================================================
-  const SPOTIFY_CLIENT_ID = '6383cdd789d04c4abeef1a8b2c0b1a8e'; // <-- required, from developer.spotify.com/dashboard
+  const SPOTIFY_CLIENT_ID = '6383cdd789d04c4abeef1a8b2c0b1a8e'; // <-- from developer.spotify.com/dashboard
   const SPOTIFY_REDIRECT_URI = window.location.origin + window.location.pathname;
   const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative';
 
@@ -4430,7 +4430,17 @@
       playing ? startSpotifyTicker() : stopSpotifyTicker();
     } else {
       if(playing){
-        ensureAudioGraph(); // must happen on a user gesture — this is always reached via a click
+        // NOTE: we intentionally do NOT call ensureAudioGraph() here anymore.
+        // The demo tracks are hosted cross-origin (soundhelix.com) without CORS
+        // headers. Routing them through createMediaElementSource() permanently
+        // zeroes/silences that <audio> element's output per the Web Audio spec
+        // (this is what was breaking "next" and "repeat" — playback looked like
+        // it was working because the UI still updated, but no audio ever came out
+        // once the graph got connected). Real playback now goes straight through
+        // the plain <audio> element, so it can't be silenced by the CORS taint.
+        // The glow visualizer / EQ still try to attach lazily (see toggleViz/EQ
+        // below) but only when explicitly enabled, and they degrade quietly if
+        // the current track doesn't support it — they never block playback.
         audioEl.play().catch(() => { /* asset unreachable in this environment — UI still reflects state */ });
         if(glowRafId === null) glowRafId = requestAnimationFrame(glowLoop);
       } else {
