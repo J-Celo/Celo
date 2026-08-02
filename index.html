@@ -2091,6 +2091,19 @@
     });
   }
 
+  // Pulls the real reason out of a failed Spotify response (status + Spotify's own
+  // message, e.g. "403: Insufficient client scope") so failures are diagnosable
+  // without needing devtools open.
+  async function spotifyErrorDetail(res){
+    try{
+      const data = await res.json();
+      if(data && data.error){
+        return `${res.status}: ${data.error.message || data.error}`;
+      }
+    } catch(err){}
+    return `${res.status}${res.statusText ? ' ' + res.statusText : ''}`;
+  }
+
   async function spotifySearch(query){
     const res = await spotifyApi('/search?type=track&limit=8&q=' + encodeURIComponent(query));
     if(!res.ok) throw new Error('spotify search failed');
@@ -2102,7 +2115,11 @@
     // grabs up to 50 playlists (Spotify's per-page max) — enough for the sidebar;
     // paging further isn't worth the complexity for a sidebar list
     const res = await spotifyApi('/me/playlists?limit=50');
-    if(!res.ok) throw new Error('failed to load Spotify playlists');
+    if(!res.ok){
+      const err = new Error('failed to load Spotify playlists');
+      err.detail = await spotifyErrorDetail(res);
+      throw err;
+    }
     const data = await res.json();
     return (data.items || []).filter(Boolean);
   }
@@ -2115,9 +2132,11 @@
     if(res.status === 403) throw new Error('private');
     if(res.status === 401) throw new Error('expired');
     if(!res.ok){
-      const body = await res.text().catch(() => '');
-      console.warn('Spotify playlist lookup failed:', res.status, body);
-      throw new Error('failed');
+      const detail = await spotifyErrorDetail(res);
+      console.warn('Spotify playlist lookup failed:', detail);
+      const err = new Error('failed');
+      err.detail = detail;
+      throw err;
     }
     return res.json();
   }
@@ -2358,6 +2377,7 @@
   }
   renderPlaylistSidebar();
 
+  let spotifyPlaylistsErrorDetail = '';
   async function loadSpotifyPlaylists(){
     spotifyPlaylistsStatus = 'loading';
     try{
@@ -2366,6 +2386,7 @@
       renderPlaylistSidebar();
     } catch(err){
       spotifyPlaylistsStatus = 'error';
+      spotifyPlaylistsErrorDetail = err.detail || err.message || 'unknown error';
       console.warn('Could not load Spotify playlists:', err);
       // leave the demo sidebar in place — connecting still works for search/playback
     }
@@ -2482,7 +2503,7 @@
     }
     if(!spotifyPlaylists.length){
       if(spotifyPlaylistsStatus === 'error'){
-        cpImportList.innerHTML = `<p class="cp-empty-note" style="color:var(--red)">Couldn't load your playlists — <a id="cpRetryLoad">try again</a>, or paste a link above instead.</p>`;
+        cpImportList.innerHTML = `<p class="cp-empty-note" style="color:var(--red)">Couldn't load your playlists (${escapeHtml(spotifyPlaylistsErrorDetail)}) — <a id="cpRetryLoad">try again</a>, or paste a link above instead.</p>`;
         return;
       }
       cpImportList.innerHTML = `<p class="cp-empty-note">Loading your Spotify playlists…</p>`;
@@ -2557,7 +2578,7 @@
           ? "Couldn't find that playlist. Double check the link."
           : err.message === 'expired'
             ? 'Your Spotify session expired — reconnect (top of the sidebar) and try again.'
-            : "Couldn't load that playlist. Try again.";
+            : `Couldn't load that playlist (${err.detail || err.message || 'unknown error'}).`;
       cpLinkError.style.display = 'block';
     } finally {
       cpLinkBtn.disabled = false;
@@ -3989,6 +4010,7 @@
     if(spotifyPlayer){ try{ spotifyPlayer.disconnect(); }catch(err){} spotifyPlayer = null; }
     spotifyPlaylists = [];
     spotifyPlaylistsStatus = 'idle';
+    spotifyPlaylistsErrorDetail = '';
     setConnectButtonState('disconnected');
   }
 
