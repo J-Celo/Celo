@@ -1316,6 +1316,35 @@
   }
   .cp-btn.primary{ background:var(--accent); border-color:var(--accent); color:#04150f; }
   .cp-btn.primary:disabled{ opacity:.4; cursor:not-allowed; }
+  .cp-link-row{ display:flex; gap:8px; margin-bottom:10px; }
+  .cp-link-row input[type="text"]{
+    flex:1; min-width:0; box-sizing:border-box;
+    background:rgba(20,22,36,0.6);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:11px 13px;
+    font-size:13.5px;
+    color:var(--text);
+    font-family:inherit;
+    outline:none;
+    transition:border-color .15s ease;
+  }
+  .cp-link-row input[type="text"]:focus{ border-color:var(--accent); }
+  .cp-link-row .cp-btn{ flex-shrink:0; padding:11px 16px; }
+  .cp-link-error{ margin:-4px 0 10px; font-size:12px; color:var(--red); line-height:1.4; }
+  .cp-import-row .meta{ flex:1; min-width:0; }
+  .cp-import-row .meta strong{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cp-link-clear{
+    flex-shrink:0; width:26px; height:26px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:rgba(20,22,36,0.6);
+    color:var(--text-dim);
+    font-size:12px;
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .cp-link-clear:hover{ border-color:var(--red); color:var(--red); }
   .cp-empty-note{ font-size:12.5px; color:var(--text-faint); padding:10px 2px; }
 
   /* toggle switch */
@@ -1891,6 +1920,11 @@
         </div>
 
         <div id="cpImportArea" style="display:none;">
+          <div class="cp-link-row">
+            <input type="text" id="cpLinkInput" placeholder="Paste a Spotify playlist link" autocomplete="off">
+            <button type="button" class="cp-btn" id="cpLinkBtn">Add</button>
+          </div>
+          <p class="cp-link-error" id="cpLinkError" style="display:none;"></p>
           <div class="cp-import-list" id="cpImportList"></div>
         </div>
 
@@ -2070,6 +2104,27 @@
     if(!res.ok) throw new Error('failed to load Spotify playlists');
     const data = await res.json();
     return (data.items || []).filter(Boolean);
+  }
+
+  async function spotifyGetPlaylistMeta(playlistId){
+    const fields = encodeURIComponent('id,name,images,tracks.total');
+    const res = await spotifyApi(`/playlists/${playlistId}?fields=${fields}`);
+    if(res.status === 404) throw new Error('not-found');
+    if(res.status === 403) throw new Error('private');
+    if(!res.ok) throw new Error('failed');
+    return res.json();
+  }
+
+  // Accepts a full open.spotify.com link, a spotify:playlist: URI, or a bare id.
+  function parseSpotifyPlaylistId(input){
+    const raw = (input || '').trim();
+    if(!raw) return null;
+    let m = raw.match(/^spotify:playlist:([a-zA-Z0-9]+)$/);
+    if(m) return m[1];
+    m = raw.match(/open\.spotify\.com\/(?:intl-[a-z]{2}\/)?playlist\/([a-zA-Z0-9]+)/);
+    if(m) return m[1];
+    if(/^[a-zA-Z0-9]{22}$/.test(raw)) return raw;
+    return null;
   }
 
   async function spotifyGetPlaylistTracks(playlistId){
@@ -2380,6 +2435,9 @@
   const cpSourceSpotifyBtn = document.getElementById('cpSourceSpotifyBtn');
   const cpImportArea = document.getElementById('cpImportArea');
   const cpImportList = document.getElementById('cpImportList');
+  const cpLinkInput = document.getElementById('cpLinkInput');
+  const cpLinkBtn = document.getElementById('cpLinkBtn');
+  const cpLinkError = document.getElementById('cpLinkError');
   const cpCreateBtn = document.getElementById('cpCreateBtn');
   const cpCancelBtn = document.getElementById('cpCancelBtn');
   const cpCloseBtn = document.getElementById('cpCloseBtn');
@@ -2388,6 +2446,7 @@
 
   let cpSource = 'empty'; // 'empty' | 'spotify'
   let cpSelectedSpotifyId = null;
+  let cpLinkPlaylist = null; // { id, name, image, trackCount } once resolved from a pasted link
 
   function cpUpdateCreateEnabled(){
     const hasName = cpNameInput.value.trim().length > 0;
@@ -2396,8 +2455,18 @@
   }
 
   function cpRenderImportList(){
+    if(cpLinkPlaylist){
+      const img = cpLinkPlaylist.image;
+      cpImportList.innerHTML = `
+        <div class="cp-import-row selected">
+          <div class="thumb" style="${img ? `background-image:url('${img}')` : `background:${palette[0]}`}"></div>
+          <div class="meta"><strong>${escapeHtml(cpLinkPlaylist.name)}</strong><small>${cpLinkPlaylist.trackCount} songs · from link</small></div>
+          <button type="button" class="cp-link-clear" id="cpLinkClearBtn" aria-label="Remove selected playlist">✕</button>
+        </div>`;
+      return;
+    }
     if(!spotifyAccessToken){
-      cpImportList.innerHTML = `<p class="cp-empty-note">Connect Spotify first (top of the sidebar) to import one of your playlists.</p>`;
+      cpImportList.innerHTML = `<p class="cp-empty-note">Connect Spotify first (top of the sidebar), or paste a playlist link above.</p>`;
       return;
     }
     if(!spotifyPlaylists.length){
@@ -2418,11 +2487,63 @@
   }
 
   cpImportList.addEventListener('click', (e) => {
+    if(e.target.closest('#cpLinkClearBtn')){
+      cpLinkPlaylist = null;
+      cpSelectedSpotifyId = null;
+      cpRenderImportList();
+      cpUpdateCreateEnabled();
+      return;
+    }
     const row = e.target.closest('.cp-import-row');
     if(!row || !row.dataset.spId) return;
     cpSelectedSpotifyId = row.dataset.spId;
     cpRenderImportList();
     cpUpdateCreateEnabled();
+  });
+
+  async function cpHandleLinkAdd(){
+    cpLinkError.style.display = 'none';
+    const id = parseSpotifyPlaylistId(cpLinkInput.value);
+    if(!id){
+      cpLinkError.textContent = "That doesn't look like a Spotify playlist link.";
+      cpLinkError.style.display = 'block';
+      return;
+    }
+    if(!spotifyAccessToken){
+      cpLinkError.textContent = 'Connect Spotify first (top of the sidebar) to import from a link.';
+      cpLinkError.style.display = 'block';
+      return;
+    }
+    cpLinkBtn.disabled = true;
+    cpLinkBtn.textContent = 'Adding…';
+    try{
+      const meta = await spotifyGetPlaylistMeta(id);
+      cpLinkPlaylist = {
+        id: meta.id,
+        name: meta.name,
+        image: meta.images && meta.images[0] ? meta.images[0].url : '',
+        trackCount: meta.tracks ? meta.tracks.total : 0,
+      };
+      cpSelectedSpotifyId = meta.id;
+      cpLinkInput.value = '';
+      if(!cpNameInput.value.trim()) cpNameInput.value = meta.name;
+      cpRenderImportList();
+      cpUpdateCreateEnabled();
+    } catch(err){
+      cpLinkError.textContent = err.message === 'private'
+        ? "That playlist is private — you'll need to be logged into the account that owns it."
+        : err.message === 'not-found'
+          ? "Couldn't find that playlist. Double check the link."
+          : "Couldn't load that playlist. Try again.";
+      cpLinkError.style.display = 'block';
+    } finally {
+      cpLinkBtn.disabled = false;
+      cpLinkBtn.textContent = 'Add';
+    }
+  }
+  cpLinkBtn.addEventListener('click', cpHandleLinkAdd);
+  cpLinkInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); cpHandleLinkAdd(); }
   });
 
   function cpSetSource(src){
@@ -2440,6 +2561,9 @@
   function openCreatePlaylistModal(){
     cpNameInput.value = '';
     cpSelectedSpotifyId = null;
+    cpLinkPlaylist = null;
+    cpLinkInput.value = '';
+    cpLinkError.style.display = 'none';
     cpSetSource('empty');
     cpOverlay.classList.add('open');
     cpOverlay.setAttribute('aria-hidden', 'false');
