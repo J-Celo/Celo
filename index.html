@@ -73,6 +73,35 @@
     animation:grid-fade-in 1.8s ease .1s both;
   }
   @keyframes grid-fade-in{ from{ opacity:0; } to{ opacity:1; } }
+
+  /* ================= AMBIENT AURORA — slow-drifting background glow so the
+     app feels alive even before anything is playing ================= */
+  .aurora{ position:fixed; inset:-10%; z-index:-1; pointer-events:none; overflow:hidden; }
+  .aurora .blob{ position:absolute; border-radius:50%; filter:blur(90px); will-change:transform; }
+  .aurora .blob-a{
+    width:46vw; height:46vw; max-width:640px; max-height:640px;
+    left:-6%; top:-12%;
+    background:radial-gradient(circle, rgba(57,245,196,0.24), transparent 68%);
+    animation:aurora-a 24s ease-in-out infinite alternate;
+  }
+  .aurora .blob-b{
+    width:42vw; height:42vw; max-width:600px; max-height:600px;
+    right:-8%; top:-4%;
+    background:radial-gradient(circle, rgba(185,140,255,0.22), transparent 68%);
+    animation:aurora-b 29s ease-in-out infinite alternate;
+  }
+  .aurora .blob-c{
+    width:36vw; height:36vw; max-width:520px; max-height:520px;
+    left:32%; bottom:-16%;
+    background:radial-gradient(circle, rgba(57,245,196,0.14), transparent 68%);
+    animation:aurora-c 33s ease-in-out infinite alternate;
+  }
+  @keyframes aurora-a{ 0%{ transform:translate(0,0) scale(1); } 100%{ transform:translate(4vw,3vh) scale(1.12); } }
+  @keyframes aurora-b{ 0%{ transform:translate(0,0) scale(1); } 100%{ transform:translate(-3vw,4vh) scale(1.08); } }
+  @keyframes aurora-c{ 0%{ transform:translate(0,0) scale(1); } 100%{ transform:translate(3vw,-3vh) scale(1.1); } }
+  @media (prefers-reduced-motion: reduce){
+    .aurora .blob{ animation:none !important; }
+  }
   button{ font-family:inherit; }
   ::selection{ background:var(--accent); color:#06070C; }
   ::-webkit-scrollbar{ width:10px; height:10px; }
@@ -402,7 +431,114 @@
     color:var(--text-faint);
   }
 
-  .content{ padding:0 32px 40px; }
+  .content{ padding:0 32px 40px; position:relative; }
+  .cursor-glow{
+    position:absolute; inset:0;
+    z-index:-1;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity .4s ease;
+    background:radial-gradient(circle 340px at var(--gx,50%) var(--gy,0px), rgba(57,245,196,0.07), transparent 70%);
+  }
+  .content:hover .cursor-glow{ opacity:1; }
+  @media (prefers-reduced-motion: reduce){ .cursor-glow{ display:none; } }
+
+  /* ================= TRACK VIEW — Spotify-style detail page for the
+     currently playing track, opened from the mini-player artwork ================= */
+  .track-view{
+    display:none;
+    padding:28px 32px 40px;
+  }
+  .track-view.open{ display:block; animation:reveal-up .5s cubic-bezier(.22,.7,.35,1) both; }
+  .tv-back{
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(20,22,36,0.6);
+    border:1px solid var(--line);
+    color:var(--text-dim);
+    font-size:13px; font-weight:600;
+    padding:8px 14px 8px 10px;
+    border-radius:100px;
+    cursor:pointer;
+    margin-bottom:24px;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .tv-back:hover{ border-color:var(--accent); color:var(--text); }
+  .tv-back svg{ width:16px; height:16px; }
+  .tv-hero{
+    display:flex; align-items:flex-end; gap:28px;
+    padding-bottom:28px;
+    margin-bottom:22px;
+    border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .tv-art{
+    width:220px; height:220px; flex-shrink:0;
+    border-radius:16px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.55), 0 0 0 1px rgba(234,238,252,0.06);
+  }
+  .tv-hero-info{ min-width:0; padding-bottom:4px; }
+  .tv-eyebrow{ font-size:12.5px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; }
+  .tv-title{
+    font-size:clamp(30px, 5vw, 56px);
+    font-weight:800;
+    line-height:1.02;
+    margin:10px 0 16px;
+    letter-spacing:-0.02em;
+    word-break:break-word;
+  }
+  .tv-meta{ display:flex; align-items:center; gap:8px; font-size:14px; color:var(--text-dim); }
+  .tv-meta .tv-dot{ color:var(--text-faint); }
+  .tv-actions{ display:flex; align-items:center; gap:18px; margin-bottom:26px; }
+  .tv-play-btn{
+    width:58px; height:58px;
+    border-radius:50%;
+    border:none;
+    background:var(--grad);
+    color:#06070C;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    box-shadow:0 10px 26px rgba(57,245,196,0.28);
+    transition:transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease;
+  }
+  .tv-play-btn:hover{ transform:scale(1.06); box-shadow:0 12px 30px rgba(57,245,196,0.4); }
+  .tv-play-btn:active{ transform:scale(0.94); }
+  .tv-play-btn svg{ width:22px; height:22px; margin-left:2px; }
+  .tv-icon-btn{
+    width:38px; height:38px;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--text-dim);
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition:border-color .15s ease, color .15s ease, transform .15s ease;
+  }
+  .tv-icon-btn:hover{ border-color:var(--accent); color:var(--text); transform:scale(1.05); }
+  .tv-icon-btn svg{ width:18px; height:18px; }
+  .tv-icon-btn.liked{ color:var(--red); border-color:rgba(255,61,127,0.4); }
+  .tv-table{ margin-top:4px; }
+  @media (max-width: 640px){
+    .tv-hero{ align-items:center; text-align:center; flex-direction:column; }
+    .tv-art{ width:170px; height:170px; }
+    .tv-actions{ justify-content:center; }
+  }
+
+  /* ================= GLOBAL TOAST — small reusable confirmation bubble ================= */
+  .global-toast{
+    position:fixed; left:50%; bottom:calc(var(--player-h) + 20px);
+    transform:translateX(-50%) translateY(8px);
+    background:rgba(20,22,36,0.95);
+    border:1px solid var(--line);
+    color:var(--text);
+    font-size:13px; font-weight:600;
+    padding:10px 18px;
+    border-radius:100px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.5);
+    opacity:0; pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;
+    z-index:400;
+  }
+  .global-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   .greeting{
     font-size:clamp(24px, 3.4vw, 34px);
@@ -423,8 +559,16 @@
   .shelf:nth-of-type(1){ animation-delay:.32s; }
   .shelf:nth-of-type(2){ animation-delay:.42s; }
   .shelf:nth-of-type(3){ animation-delay:.52s; }
+  @keyframes pop-in{
+    from{ opacity:0; transform:translateY(14px) scale(.96); }
+    to{ opacity:1; transform:translateY(0) scale(1); }
+  }
+  .card{ animation:pop-in .5s cubic-bezier(.22,.7,.35,1) both; }
+  .playlist-item{ animation:pop-in .42s cubic-bezier(.22,.7,.35,1) both; }
+  .row-enter{ animation:pop-in .4s cubic-bezier(.22,.7,.35,1) both; }
   @media (prefers-reduced-motion: reduce){
     .greeting, .shelf, .brand .mark, body::before{ animation:none !important; opacity:1 !important; filter:none !important; }
+    .card, .playlist-item, .row-enter{ animation:none !important; opacity:1 !important; transform:none !important; }
   }
 
   .shelf{ margin-bottom:38px; }
@@ -1110,6 +1254,70 @@
     color:var(--text-dim);
   }
 
+  /* ================= CREATE PLAYLIST MODAL ================= */
+  .cp-body{ padding:22px; display:flex; flex-direction:column; gap:20px; }
+  .cp-field label{ display:block; font-size:12.5px; font-weight:600; color:var(--text-dim); margin-bottom:8px; }
+  .cp-field input[type="text"]{
+    width:100%; box-sizing:border-box;
+    background:rgba(20,22,36,0.6);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:11px 13px;
+    font-size:14.5px;
+    color:var(--text);
+    font-family:inherit;
+    outline:none;
+    transition:border-color .15s ease;
+  }
+  .cp-field input[type="text"]:focus{ border-color:var(--accent); }
+  .cp-source-toggle{ display:flex; gap:8px; }
+  .cp-source-btn{
+    flex:1;
+    padding:10px 12px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background:rgba(20,22,36,0.4);
+    color:var(--text-dim);
+    font-size:13px; font-weight:600;
+    cursor:pointer;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .cp-source-btn.active{ border-color:var(--accent); color:var(--accent); background:rgba(57,245,196,0.08); }
+  .cp-source-btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .cp-import-list{
+    max-height:220px; overflow-y:auto;
+    display:flex; flex-direction:column; gap:4px;
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:6px;
+  }
+  .cp-import-row{
+    display:flex; align-items:center; gap:10px;
+    padding:8px; border-radius:8px;
+    cursor:pointer;
+    border:1px solid transparent;
+  }
+  .cp-import-row:hover{ background:rgba(57,245,196,0.06); }
+  .cp-import-row.selected{ border-color:var(--accent); background:rgba(57,245,196,0.08); }
+  .cp-import-row .thumb{ width:36px; height:36px; border-radius:6px; flex-shrink:0; background-size:cover; background-position:center; }
+  .cp-import-row .meta strong{ display:block; font-size:13px; font-weight:600; }
+  .cp-import-row .meta small{ font-size:11.5px; color:var(--text-faint); }
+  .cp-hint{ margin:0; font-size:12.5px; color:var(--text-faint); line-height:1.5; }
+  .cp-hint a{ color:var(--accent); cursor:pointer; text-decoration:underline; }
+  .cp-actions{ display:flex; justify-content:flex-end; gap:10px; padding-top:4px; }
+  .cp-btn{
+    padding:10px 18px;
+    border-radius:10px;
+    font-size:13.5px; font-weight:700;
+    cursor:pointer;
+    border:1px solid var(--line);
+    background:rgba(20,22,36,0.6);
+    color:var(--text-dim);
+  }
+  .cp-btn.primary{ background:var(--accent); border-color:var(--accent); color:#04150f; }
+  .cp-btn.primary:disabled{ opacity:.4; cursor:not-allowed; }
+  .cp-empty-note{ font-size:12.5px; color:var(--text-faint); padding:10px 2px; }
+
   /* toggle switch */
   .eq-toggle{ position:relative; flex-shrink:0; cursor:pointer; }
   .eq-toggle input{ position:absolute; opacity:0; width:1px; height:1px; }
@@ -1325,6 +1533,12 @@
 </head>
 <body>
 
+<div class="aurora" aria-hidden="true">
+  <div class="blob blob-a"></div>
+  <div class="blob blob-b"></div>
+  <div class="blob blob-c"></div>
+</div>
+
 <audio id="audioEl" preload="none" crossorigin="anonymous"></audio>
 
 <div class="app">
@@ -1352,7 +1566,7 @@
 
     <div class="lib-head">
       <span>Crates</span>
-      <button aria-label="Create playlist"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button aria-label="Create playlist" id="createPlaylistBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     </div>
 
     <div class="playlist-list" id="playlistList"></div>
@@ -1386,7 +1600,8 @@
       </div>
     </div>
 
-    <div class="content">
+    <div class="content" id="content">
+      <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
       <h1 class="greeting display" id="greeting">Afternoon spin.</h1>
 
       <section class="shelf" id="jumpBack">
@@ -1410,7 +1625,49 @@
         <div class="empty-state" id="emptyState" style="display:none;">No matches. Try a different search.</div>
       </section>
     </div>
+
+    <!-- ================= TRACK VIEW — opened from the mini-player artwork ================= -->
+    <div class="track-view" id="trackView" aria-hidden="true">
+      <button class="tv-back" id="tvBackBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+
+      <div class="tv-hero">
+        <div class="tv-art" id="tvArt"></div>
+        <div class="tv-hero-info">
+          <span class="tv-eyebrow" id="tvEyebrow">Track</span>
+          <h1 class="tv-title display" id="tvTitleText">—</h1>
+          <div class="tv-meta">
+            <span id="tvArtist">—</span>
+            <span class="tv-dot">•</span>
+            <span id="tvDuration">0:00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tv-actions">
+        <button class="tv-play-btn" id="tvPlayBtn" aria-label="Play">
+          <svg id="tvPlayIcon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </button>
+        <button class="tv-icon-btn" id="tvHeart" aria-label="Save to your crate">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>
+        <button class="tv-icon-btn" id="tvMoreBtn" aria-label="More options">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+        </button>
+      </div>
+
+      <table class="lib-table tv-table">
+        <thead>
+          <tr><th class="idx">#</th><th>Title</th><th></th><th class="dur">Time</th><th></th></tr>
+        </thead>
+        <tbody id="tvTableBody"></tbody>
+      </table>
+    </div>
   </main>
+
+  <div class="global-toast" id="globalToast"></div>
 
   <!-- ================= PLAYER BAR ================= -->
   <footer class="player">
@@ -1604,6 +1861,43 @@
             </label>
           </div>
         </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= CREATE PLAYLIST — modal ================= -->
+  <div class="settings-overlay" id="cpOverlay" aria-hidden="true">
+    <div class="settings-backdrop" id="cpBackdrop"></div>
+    <div class="settings-modal" role="dialog" aria-label="Create playlist" aria-modal="true" style="max-width:440px; max-height:min(560px, 88vh);">
+      <div class="settings-head">
+        <h2 class="display">Create playlist</h2>
+        <button class="settings-close" id="cpCloseBtn" aria-label="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div class="cp-body">
+        <div class="cp-field">
+          <label for="cpNameInput">Name</label>
+          <input type="text" id="cpNameInput" placeholder="My playlist" autocomplete="off" maxlength="60">
+        </div>
+
+        <div class="cp-field">
+          <label>Start from</label>
+          <div class="cp-source-toggle">
+            <button type="button" class="cp-source-btn active" id="cpSourceEmptyBtn">Empty playlist</button>
+            <button type="button" class="cp-source-btn" id="cpSourceSpotifyBtn">Import from Spotify</button>
+          </div>
+        </div>
+
+        <div id="cpImportArea" style="display:none;">
+          <div class="cp-import-list" id="cpImportList"></div>
+        </div>
+
+        <div class="cp-actions">
+          <button type="button" class="cp-btn" id="cpCancelBtn">Cancel</button>
+          <button type="button" class="cp-btn primary" id="cpCreateBtn" disabled>Create</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1909,36 +2203,96 @@
   }
   if(typeof persisted.shuffleOn === 'boolean') shuffleOn = persisted.shuffleOn;
 
+  // ---------------- listening history (drives "Back on the platter" + "Picked for your crate") ----------------
+  // playCounts: { trackId: number } — every completed playTrack() call increments the
+  // relevant id. This is what "Picked for your crate" ranks by, so it behaves like a
+  // real most-played/top-tracks shelf instead of a static list.
+  let playCounts = {};
+  if(persisted.playCounts && typeof persisted.playCounts === 'object'){
+    Object.keys(persisted.playCounts).forEach(k => {
+      const id = parseInt(k, 10);
+      const n = persisted.playCounts[k];
+      if(tracks[id] && typeof n === 'number' && n > 0) playCounts[id] = n;
+    });
+  }
+  // recentlyPlayed: track ids, most recent first. Shared by the home shelves below and
+  // the search empty-state list (declared/used further down near search).
+  let recentlyPlayed = [];
+  if(Array.isArray(persisted.recentlyPlayed)){
+    recentlyPlayed = persisted.recentlyPlayed.filter(id => tracks[id]).slice(0, 6);
+  }
+
   const audioEl = document.getElementById('audioEl');
+
+  // subtle cursor-reactive glow over the content area — cheap way to make the
+  // page feel responsive to the person even when nothing is playing
+  const contentEl = document.getElementById('content');
+  const cursorGlow = document.getElementById('cursorGlow');
+  if(contentEl && cursorGlow){
+    contentEl.addEventListener('pointermove', (e) => {
+      const rect = contentEl.getBoundingClientRect();
+      cursorGlow.style.setProperty('--gx', (e.clientX - rect.left) + 'px');
+      cursorGlow.style.setProperty('--gy', (e.clientY - rect.top) + 'px');
+    });
+  }
+
+  // ---------------- local (user-created) playlists ----------------
+  // Created via the "+" button in the sidebar header. Each one is either an
+  // empty shell (source:'local') or a snapshot copy of a Spotify playlist's
+  // tracks at import time (source:'spotify-import') — importing does NOT keep
+  // it in sync with Spotify, it's just a one-time starting point.
+  const LOCAL_PLAYLISTS_KEY = 'celo:local-playlists:v1';
+  let localPlaylists = [];
+  try{
+    const rawLp = localStorage.getItem(LOCAL_PLAYLISTS_KEY);
+    localPlaylists = rawLp ? JSON.parse(rawLp) : [];
+  } catch(err){
+    console.warn('Could not read saved local playlists:', err);
+    localPlaylists = [];
+  }
+  function saveLocalPlaylists(){
+    try{ localStorage.setItem(LOCAL_PLAYLISTS_KEY, JSON.stringify(localPlaylists)); }
+    catch(err){ console.warn('Could not save local playlists:', err); }
+  }
 
   // ---------------- render: sidebar playlists ----------------
   const playlistList = document.getElementById('playlistList');
 
   function renderPlaylistSidebar(){
-    const crateItem = `<div class="playlist-item liked" data-track="0">
+    const crateItem = `<div class="playlist-item liked" data-track="0" style="animation-delay:0ms">
        <div class="thumb"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7.5-4.5-9.8-9A5.4 5.4 0 0 1 12 6a5.4 5.4 0 0 1 9.8 6c-2.3 4.5-9.8 9-9.8 9z"/></svg></div>
        <div class="meta"><strong>The Crate</strong><small>${tracks.length} songs</small></div>
      </div>`;
 
+    const localItems = localPlaylists.map((p, i) => `
+      <div class="playlist-item" data-local-playlist="${p.id}" tabindex="0" style="animation-delay:${(i+1)*35}ms">
+        <div class="thumb" style="background:${palette[p.paletteIdx % palette.length]}"></div>
+        <div class="meta"><strong>${escapeHtml(p.name)}</strong><small>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</small></div>
+      </div>`).join('');
+
+    const baseDelay = (localPlaylists.length + 1) * 35;
+
     if(spotifyPlaylists.length){
       // real playlists, once connected and loaded — replaces the demo list below
-      playlistList.innerHTML = crateItem + spotifyPlaylists.map(p => {
+      const spotifyItems = spotifyPlaylists.map((p, i) => {
         const img = p.images && p.images[0] ? p.images[0].url : '';
         return `
-        <div class="playlist-item" data-spotify-playlist="${p.id}" data-spotify-playlist-name="${escapeHtml(p.name)}" tabindex="0">
+        <div class="playlist-item" data-spotify-playlist="${p.id}" data-spotify-playlist-name="${escapeHtml(p.name)}" tabindex="0" style="animation-delay:${baseDelay + i*35}ms">
           <div class="thumb" style="${img ? `background-image:url('${img}');background-size:cover;background-position:center;` : `background:${palette[p.id.charCodeAt(0) % palette.length]}`}"></div>
           <div class="meta"><strong>${escapeHtml(p.name)}</strong><small>${p.tracks.total} songs</small></div>
         </div>`;
       }).join('');
+      playlistList.innerHTML = crateItem + localItems + spotifyItems;
       return;
     }
 
     // not connected (or nothing loaded yet) — demo placeholders
-    playlistList.innerHTML = crateItem + playlists.map((name, i) => `
-      <div class="playlist-item" data-track="${(i+1) % tracks.length}">
+    const demoItems = playlists.map((name, i) => `
+      <div class="playlist-item" data-track="${(i+1) % tracks.length}" style="animation-delay:${baseDelay + i*35}ms">
         <div class="thumb" style="background:${palette[(i+2) % palette.length]}"></div>
         <div class="meta"><strong>${name}</strong><small>Playlist</small></div>
       </div>`).join('');
+    playlistList.innerHTML = crateItem + localItems + demoItems;
   }
   renderPlaylistSidebar();
 
@@ -1950,6 +2304,28 @@
       console.warn('Could not load Spotify playlists:', err);
       // leave the demo sidebar in place — connecting still works for search/playback
     }
+  }
+
+  function openLocalPlaylist(id){
+    const p = localPlaylists.find(pl => pl.id === id);
+    if(!p) return;
+    sidebar.classList.remove('open');
+    searchInput.value = '';
+    if(!p.tracks.length){
+      renderResultsState(`<div class="sr-state">${escapeHtml(p.name)} is empty. Import a Spotify playlist next time you create one to fill it, or add tracks here as that feature lands.</div>`);
+      searchResults.classList.add('open');
+      return;
+    }
+    spotifyQueue = p.tracks;
+    spotifyContextName = p.name;
+    searchResults.innerHTML = p.tracks.map((t, i) => `
+      <div class="sr-row" data-idx="${i}" data-source="spotify">
+        <div class="sr-thumb" style="background-image:url('${t.album.images[2] ? t.album.images[2].url : (t.album.images[0]||{}).url || ''}')"></div>
+        <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
+        <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
+      </div>`).join('');
+    searchResults.classList.add('open');
+    playSpotifyTrack(p.tracks[0], 0);
   }
 
   async function openSpotifyPlaylist(id, name){
@@ -1983,18 +2359,141 @@
   playlistList.addEventListener('click', (e) => {
     const item = e.target.closest('.playlist-item');
     if(!item) return;
+    closeTrackView();
     const spId = item.dataset.spotifyPlaylist;
     if(spId){
       openSpotifyPlaylist(spId, item.dataset.spotifyPlaylistName);
       return;
     }
+    const localId = item.dataset.localPlaylist;
+    if(localId){
+      openLocalPlaylist(localId);
+      return;
+    }
     playTrack(parseInt(item.dataset.track, 10));
   });
 
+  // ---------------- create playlist modal ----------------
+  const cpOverlay = document.getElementById('cpOverlay');
+  const cpNameInput = document.getElementById('cpNameInput');
+  const cpSourceEmptyBtn = document.getElementById('cpSourceEmptyBtn');
+  const cpSourceSpotifyBtn = document.getElementById('cpSourceSpotifyBtn');
+  const cpImportArea = document.getElementById('cpImportArea');
+  const cpImportList = document.getElementById('cpImportList');
+  const cpCreateBtn = document.getElementById('cpCreateBtn');
+  const cpCancelBtn = document.getElementById('cpCancelBtn');
+  const cpCloseBtn = document.getElementById('cpCloseBtn');
+  const cpBackdrop = document.getElementById('cpBackdrop');
+  const createPlaylistBtn = document.getElementById('createPlaylistBtn');
+
+  let cpSource = 'empty'; // 'empty' | 'spotify'
+  let cpSelectedSpotifyId = null;
+
+  function cpUpdateCreateEnabled(){
+    const hasName = cpNameInput.value.trim().length > 0;
+    const sourceOk = cpSource === 'empty' || (cpSource === 'spotify' && cpSelectedSpotifyId);
+    cpCreateBtn.disabled = !(hasName && sourceOk);
+  }
+
+  function cpRenderImportList(){
+    if(!spotifyAccessToken){
+      cpImportList.innerHTML = `<p class="cp-empty-note">Connect Spotify first (top of the sidebar) to import one of your playlists.</p>`;
+      return;
+    }
+    if(!spotifyPlaylists.length){
+      cpImportList.innerHTML = `<p class="cp-empty-note">Loading your Spotify playlists…</p>`;
+      loadSpotifyPlaylists().then(() => {
+        if(cpSource === 'spotify') cpRenderImportList();
+      });
+      return;
+    }
+    cpImportList.innerHTML = spotifyPlaylists.map(p => {
+      const img = p.images && p.images[0] ? p.images[0].url : '';
+      return `
+      <div class="cp-import-row${cpSelectedSpotifyId === p.id ? ' selected' : ''}" data-sp-id="${p.id}" data-sp-name="${escapeHtml(p.name)}">
+        <div class="thumb" style="${img ? `background-image:url('${img}')` : `background:${palette[p.id.charCodeAt(0) % palette.length]}`}"></div>
+        <div class="meta"><strong>${escapeHtml(p.name)}</strong><small>${p.tracks.total} songs</small></div>
+      </div>`;
+    }).join('');
+  }
+
+  cpImportList.addEventListener('click', (e) => {
+    const row = e.target.closest('.cp-import-row');
+    if(!row || !row.dataset.spId) return;
+    cpSelectedSpotifyId = row.dataset.spId;
+    cpRenderImportList();
+    cpUpdateCreateEnabled();
+  });
+
+  function cpSetSource(src){
+    cpSource = src;
+    cpSourceEmptyBtn.classList.toggle('active', src === 'empty');
+    cpSourceSpotifyBtn.classList.toggle('active', src === 'spotify');
+    cpImportArea.style.display = src === 'spotify' ? 'block' : 'none';
+    if(src === 'spotify') cpRenderImportList();
+    cpUpdateCreateEnabled();
+  }
+  cpSourceEmptyBtn.addEventListener('click', () => cpSetSource('empty'));
+  cpSourceSpotifyBtn.addEventListener('click', () => cpSetSource('spotify'));
+  cpNameInput.addEventListener('input', cpUpdateCreateEnabled);
+
+  function openCreatePlaylistModal(){
+    cpNameInput.value = '';
+    cpSelectedSpotifyId = null;
+    cpSetSource('empty');
+    cpOverlay.classList.add('open');
+    cpOverlay.setAttribute('aria-hidden', 'false');
+    setTimeout(() => cpNameInput.focus(), 50);
+  }
+  function closeCreatePlaylistModal(){
+    cpOverlay.classList.remove('open');
+    cpOverlay.setAttribute('aria-hidden', 'true');
+  }
+  createPlaylistBtn.addEventListener('click', openCreatePlaylistModal);
+  cpCancelBtn.addEventListener('click', closeCreatePlaylistModal);
+  cpCloseBtn.addEventListener('click', closeCreatePlaylistModal);
+  cpBackdrop.addEventListener('click', closeCreatePlaylistModal);
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && cpOverlay.classList.contains('open')) closeCreatePlaylistModal();
+  });
+
+  async function cpCreatePlaylist(){
+    const name = cpNameInput.value.trim();
+    if(!name) return;
+    cpCreateBtn.disabled = true;
+    cpCreateBtn.textContent = 'Creating…';
+    try{
+      let importedTracks = [];
+      if(cpSource === 'spotify' && cpSelectedSpotifyId){
+        const { tracks: items } = await spotifyGetPlaylistTracks(cpSelectedSpotifyId);
+        importedTracks = items;
+      }
+      const newPlaylist = {
+        id: 'lp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name,
+        source: cpSource === 'spotify' ? 'spotify-import' : 'local',
+        createdAt: Date.now(),
+        paletteIdx: localPlaylists.length + 2,
+        tracks: importedTracks,
+      };
+      localPlaylists.push(newPlaylist);
+      saveLocalPlaylists();
+      renderPlaylistSidebar();
+      closeCreatePlaylistModal();
+    } catch(err){
+      console.warn('Could not create playlist:', err);
+      cpImportList.insertAdjacentHTML('afterbegin', `<p class="cp-empty-note" style="color:var(--red)">Couldn't import that playlist. Try again.</p>`);
+    } finally {
+      cpCreateBtn.disabled = false;
+      cpCreateBtn.textContent = 'Create';
+    }
+  }
+  cpCreateBtn.addEventListener('click', cpCreatePlaylist);
+
   // ---------------- render: card shelves ----------------
-  function cardHTML(t){
+  function cardHTML(t, i = 0){
     return `
-      <div class="card" data-track="${t.id}" tabindex="0">
+      <div class="card" data-track="${t.id}" tabindex="0" style="animation-delay:${Math.min(i,10)*45}ms">
         <div class="art" style="background:${t.art}">
           <button class="play-fab" aria-label="Play ${t.title}">
             <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -2004,8 +2503,26 @@
         <p>${t.artist}</p>
       </div>`;
   }
-  document.getElementById('jumpBackRow').innerHTML = tracks.slice(0,6).map(cardHTML).join('');
-  document.getElementById('madeForYouRow').innerHTML = [...tracks].reverse().slice(0,6).map(cardHTML).join('');
+  // "Back on the platter" = actual recently played tracks, most recent first.
+  // "Picked for your crate" = actual most-played tracks, ranked by play count.
+  // Both fall back to demo picks only until there's real listening history to show.
+  function renderHomeShelves(){
+    const recentRow = document.getElementById('jumpBackRow');
+    const topRow = document.getElementById('madeForYouRow');
+    if(!recentRow || !topRow) return;
+
+    const recentTracks = recentlyPlayed.map(id => tracks[id]).filter(Boolean);
+    recentRow.innerHTML = (recentTracks.length ? recentTracks : tracks.slice(0,6)).map(cardHTML).join('');
+
+    const playedIds = Object.keys(playCounts)
+      .map(k => parseInt(k, 10))
+      .filter(id => tracks[id] && playCounts[id] > 0)
+      .sort((a, b) => playCounts[b] - playCounts[a] || (recentlyPlayed.indexOf(a) - recentlyPlayed.indexOf(b)))
+      .slice(0, 6)
+      .map(id => tracks[id]);
+    topRow.innerHTML = (playedIds.length ? playedIds : [...tracks].reverse().slice(0,6)).map(cardHTML).join('');
+  }
+  renderHomeShelves();
 
   document.querySelectorAll('.card-row').forEach(row => {
     row.addEventListener('click', (e) => {
@@ -2061,6 +2578,13 @@
     document.getElementById('emptyState').style.display = rows.length ? 'none' : 'block';
   }
   renderLibrary();
+  // one-time entrance stagger for the initial paint only — renderLibrary() re-runs
+  // on every keystroke while filtering, on reorder, and on like, so baking the
+  // animation into the row markup itself would replay it on every re-render
+  libraryBody.querySelectorAll('tr').forEach((tr, i) => {
+    tr.classList.add('row-enter');
+    tr.style.animationDelay = Math.min(i, 14) * 30 + 'ms';
+  });
 
   // ---------------- drag-to-reorder the crate ----------------
   // uses pointer events (not native HTML5 drag-and-drop) so it works the same
@@ -2178,11 +2702,13 @@
 
   function closeResults(){ searchResults.classList.remove('open'); searchResults.innerHTML = ''; }
 
-  // ---------------- recently played (drives the empty-search-state list) ----------------
-  let recentlyPlayed = []; // track ids, most recent first
+  // ---------------- recently played (drives the empty-search-state list + "Back on the platter") ----------------
   function pushRecentlyPlayed(id){
     if(id == null) return;
     recentlyPlayed = [id, ...recentlyPlayed.filter(x => x !== id)].slice(0, 6);
+    playCounts[id] = (playCounts[id] || 0) + 1;
+    savePersistedState({ recentlyPlayed, playCounts });
+    renderHomeShelves();
   }
   function renderRecentlyPlayed(){
     const rows = recentlyPlayed.map(id => tracks[id]).filter(Boolean).map(t => `
@@ -2550,6 +3076,79 @@
   });
   updateDiscEmptyState(); // set the initial affordance before anything's queued
 
+  // ---------------- global toast (small reusable confirmation bubble) ----------------
+  const globalToast = document.getElementById('globalToast');
+  let globalToastTimer = null;
+  function showGlobalToast(msg){
+    globalToast.textContent = msg;
+    globalToast.classList.add('show');
+    clearTimeout(globalToastTimer);
+    globalToastTimer = setTimeout(() => globalToast.classList.remove('show'), 1800);
+  }
+
+  // ---------------- track view (Spotify-style detail page for the current track) ----------------
+  const contentPanel = document.getElementById('content');
+  const trackView = document.getElementById('trackView');
+  const tvBackBtn = document.getElementById('tvBackBtn');
+  const tvArt = document.getElementById('tvArt');
+  const tvTitleText = document.getElementById('tvTitleText');
+  const tvArtist = document.getElementById('tvArtist');
+  const tvDuration = document.getElementById('tvDuration');
+  const tvEyebrow = document.getElementById('tvEyebrow');
+  const tvHeart = document.getElementById('tvHeart');
+  const tvMoreBtn = document.getElementById('tvMoreBtn');
+  const tvPlayBtn = document.getElementById('tvPlayBtn');
+  const tvTableBody = document.getElementById('tvTableBody');
+
+  function syncTrackView(){
+    if(!trackView.classList.contains('open')) return;
+    tvArt.style.background = npArt.style.background;
+    tvTitleText.textContent = npTitle.textContent;
+    tvArtist.textContent = npArtist.textContent;
+    tvDuration.textContent = durTimeEl.textContent;
+    tvEyebrow.textContent = playbackMode === 'spotify' ? 'Track • Spotify' : 'Track • The Crate';
+    const isLiked = npHeart.classList.contains('liked');
+    tvHeart.classList.toggle('liked', isLiked);
+    tvTableBody.innerHTML = `
+      <tr class="playing">
+        <td class="idx"><span class="idx-label">1</span></td>
+        <td colspan="2">
+          <div class="title-cell">
+            <div class="thumb" style="background:${npArt.style.background}"></div>
+            <div><strong><span class="spin-badge" aria-hidden="true"></span>${escapeHtml(tvTitleText.textContent)}</strong><small>${escapeHtml(tvArtist.textContent)}</small></div>
+          </div>
+        </td>
+        <td class="dur mono">${tvDuration.textContent}</td>
+        <td class="heart-cell"></td>
+      </tr>`;
+  }
+
+  function openTrackView(){
+    if(currentIndex === null && playbackMode !== 'spotify') return; // nothing loaded yet
+    contentPanel.style.display = 'none';
+    trackView.classList.add('open');
+    trackView.setAttribute('aria-hidden', 'false');
+    syncTrackView();
+    mainEl.scrollTo({ top: 0, behavior: 'auto' });
+  }
+  function closeTrackView(){
+    trackView.classList.remove('open');
+    trackView.setAttribute('aria-hidden', 'true');
+    contentPanel.style.display = '';
+  }
+  npArt.style.cursor = 'pointer';
+  npArt.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openTrackView();
+  });
+  tvBackBtn.addEventListener('click', closeTrackView);
+  tvPlayBtn.addEventListener('click', handlePlayClick);
+  tvHeart.addEventListener('click', () => npHeart.click());
+  tvMoreBtn.addEventListener('click', () => showGlobalToast('More options coming soon'));
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && trackView.classList.contains('open')) closeTrackView();
+  });
+
   // -- Spotify playback (full tracks, requires connected Premium account) --
   async function playSpotifyTrack(track, queueIdx){
     // stop any local playback/crossfade first so nothing plays underneath
@@ -2590,8 +3189,12 @@
     document.getElementById('npoPlayIcon').outerHTML = playing
       ? '<svg id="npoPlayIcon" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4.5" height="16"/><rect x="14.5" y="4" width="4.5" height="16"/></svg>'
       : '<svg id="npoPlayIcon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
+    document.getElementById('tvPlayIcon').outerHTML = playing
+      ? '<svg id="tvPlayIcon" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="4" width="4.5" height="16"/><rect x="14.5" y="4" width="4.5" height="16"/></svg>'
+      : '<svg id="tvPlayIcon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
     npArt.classList.toggle('spinning', playing);
     npoVinyl.classList.toggle('spinning', playing);
+    syncTrackView();
   }
 
   function updateSeekUI(posMs, durMs){
@@ -3165,6 +3768,7 @@
     item.addEventListener('click', () => {
       navItems.forEach(n => n.classList.remove('active'));
       item.classList.add('active');
+      closeTrackView();
       const target = document.getElementById(item.dataset.target);
       if(target) target.scrollIntoView({ behavior:'smooth', block:'start' });
       if(item.dataset.target === 'searchSection'){ searchInput.focus(); }
