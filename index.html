@@ -2404,7 +2404,7 @@
   // ================================================================
   const SPOTIFY_CLIENT_ID = '6383cdd789d04c4abeef1a8b2c0b1a8e'; // <-- from developer.spotify.com/dashboard
   const SPOTIFY_REDIRECT_URI = window.location.origin + window.location.pathname;
-  const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative';
+  const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative user-top-read user-read-recently-played';
 
   let spotifyAccessToken = null;
   let spotifyTokenExpiry = 0;
@@ -2659,6 +2659,34 @@
     }
 
     return { tracks, truncated };
+  }
+
+  async function spotifyGetTopTracks(limit = 6){
+    // "your most-played tracks recently" — drives the Home page's "Picked for
+    // your crate" shelf once connected. Needs the user-top-read scope.
+    const res = await spotifyApi(`/me/top/tracks?limit=${limit}&time_range=short_term`);
+    if(!res.ok) throw new Error('failed to load top tracks');
+    const data = await res.json();
+    return (data.items || []).filter(t => t && t.uri);
+  }
+
+  async function spotifyGetRecentlyPlayed(limit = 10){
+    // drives the Home page's "Back on the platter" shelf once connected.
+    // Needs the user-read-recently-played scope. The same track can appear
+    // multiple times (repeat listens), so de-dupe down to 6 unique tracks.
+    const res = await spotifyApi(`/me/player/recently-played?limit=${limit}`);
+    if(!res.ok) throw new Error('failed to load recently played');
+    const data = await res.json();
+    const seen = new Set();
+    const out = [];
+    for(const item of (data.items || [])){
+      const t = item.track;
+      if(!t || !t.uri || seen.has(t.uri)) continue;
+      seen.add(t.uri);
+      out.push(t);
+      if(out.length >= 6) break;
+    }
+    return out;
   }
 
   async function spotifyPlayUri(uri){
@@ -3266,37 +3294,94 @@
         <p>${t.artist}</p>
       </div>`;
   }
+  // Spotify-backed home shelves — populated once loadSpotifyHomeShelves() succeeds.
+  let spotifyRecentTracks = [];
+  let spotifyTopTracks = [];
+  let usingSpotifyHome = false;
+
+  function cardHTMLSpotify(t, i = 0){
+    const art = t.album && t.album.images && t.album.images[0] ? t.album.images[0].url : '';
+    const artists = t.artists.map(a => a.name).join(', ');
+    return `
+      <div class="card" data-spotify-uri="${t.uri}" tabindex="0" style="animation-delay:${Math.min(i,10)*45}ms">
+        <div class="art" style="background-image:url('${art}');background-size:cover;background-position:center;">
+          <button class="play-fab" aria-label="Play ${escapeHtml(t.name)}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+        </div>
+        <h3><span class="spin-badge" aria-hidden="true"></span>${escapeHtml(t.name)}</h3>
+        <p>${escapeHtml(artists)}</p>
+      </div>`;
+  }
+
   // "Back on the platter" = actual recently played tracks, most recent first.
   // "Picked for your crate" = actual most-played tracks, ranked by play count.
-  // Both fall back to demo picks only until there's real listening history to show.
+  // Once Spotify is connected, real Spotify listening data drives both — they
+  // only fall back to the local demo picks if there's nothing real to show yet.
   function renderHomeShelves(){
     const recentRow = document.getElementById('jumpBackRow');
     const topRow = document.getElementById('madeForYouRow');
     if(!recentRow || !topRow) return;
 
-    const recentTracks = recentlyPlayed.map(id => tracks[id]).filter(Boolean);
-    recentRow.innerHTML = (recentTracks.length ? recentTracks : tracks.slice(0,6)).map(cardHTML).join('');
+    if(usingSpotifyHome && spotifyRecentTracks.length){
+      recentRow.innerHTML = spotifyRecentTracks.map(cardHTMLSpotify).join('');
+    } else {
+      const recentTracks = recentlyPlayed.map(id => tracks[id]).filter(Boolean);
+      recentRow.innerHTML = (recentTracks.length ? recentTracks : tracks.slice(0,6)).map(cardHTML).join('');
+    }
 
-    const playedIds = Object.keys(playCounts)
-      .map(k => parseInt(k, 10))
-      .filter(id => tracks[id] && playCounts[id] > 0)
-      .sort((a, b) => playCounts[b] - playCounts[a] || (recentlyPlayed.indexOf(a) - recentlyPlayed.indexOf(b)))
-      .slice(0, 6)
-      .map(id => tracks[id]);
-    topRow.innerHTML = (playedIds.length ? playedIds : [...tracks].reverse().slice(0,6)).map(cardHTML).join('');
+    if(usingSpotifyHome && spotifyTopTracks.length){
+      topRow.innerHTML = spotifyTopTracks.map(cardHTMLSpotify).join('');
+    } else {
+      const playedIds = Object.keys(playCounts)
+        .map(k => parseInt(k, 10))
+        .filter(id => tracks[id] && playCounts[id] > 0)
+        .sort((a, b) => playCounts[b] - playCounts[a] || (recentlyPlayed.indexOf(a) - recentlyPlayed.indexOf(b)))
+        .slice(0, 6)
+        .map(id => tracks[id]);
+      topRow.innerHTML = (playedIds.length ? playedIds : [...tracks].reverse().slice(0,6)).map(cardHTML).join('');
+    }
   }
   renderHomeShelves();
+
+  // Fetches real "recently played" / "top tracks" data from Spotify and swaps
+  // the Home shelves over to it. Leaves the demo picks in place on failure.
+  async function loadSpotifyHomeShelves(){
+    const [recent, top] = await Promise.all([
+      spotifyGetRecentlyPlayed(10).catch(err => { console.warn('Could not load Spotify recently played:', err); return []; }),
+      spotifyGetTopTracks(6).catch(err => { console.warn('Could not load Spotify top tracks:', err); return []; }),
+    ]);
+    if(recent.length || top.length){
+      spotifyRecentTracks = recent.slice(0, 6);
+      spotifyTopTracks = top;
+      usingSpotifyHome = true;
+      renderHomeShelves();
+    }
+  }
+
+  function playHomeSpotifyCard(card, row){
+    const arr = row.id === 'jumpBackRow' ? spotifyRecentTracks : spotifyTopTracks;
+    const idx = arr.findIndex(t => t.uri === card.dataset.spotifyUri);
+    if(idx === -1) return;
+    spotifyQueue = arr;
+    spotifyQueueIndex = idx;
+    spotifyContextName = row.id === 'jumpBackRow' ? 'Recently played' : 'Your top tracks';
+    playSpotifyTrack(arr[idx], idx);
+  }
 
   document.querySelectorAll('.card-row').forEach(row => {
     row.addEventListener('click', (e) => {
       const card = e.target.closest('.card');
       if(!card) return;
+      if(card.dataset.spotifyUri){ playHomeSpotifyCard(card, row); return; }
       playTrack(parseInt(card.dataset.track, 10));
     });
     row.addEventListener('keydown', (e) => {
       if(e.key === 'Enter'){
         const card = e.target.closest('.card');
-        if(card) playTrack(parseInt(card.dataset.track, 10));
+        if(!card) return;
+        if(card.dataset.spotifyUri){ playHomeSpotifyCard(card, row); return; }
+        playTrack(parseInt(card.dataset.track, 10));
       }
     });
   });
@@ -5047,6 +5132,10 @@
     spotifyPlaylists = [];
     spotifyPlaylistsStatus = 'idle';
     spotifyPlaylistsErrorDetail = '';
+    spotifyRecentTracks = [];
+    spotifyTopTracks = [];
+    usingSpotifyHome = false;
+    renderHomeShelves();
     setConnectButtonState('disconnected');
   }
 
@@ -5071,6 +5160,7 @@
       if(window.Spotify && !spotifyPlayer) window.onSpotifyWebPlaybackSDKReady();
       loadSpotifyPlaylists();
       loadSpotifyTopSongs();
+      loadSpotifyHomeShelves();
     } else {
       setConnectButtonState('disconnected');
     }
