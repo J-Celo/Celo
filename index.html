@@ -1944,7 +1944,7 @@
   // ================================================================
   const SPOTIFY_CLIENT_ID = '6383cdd789d04c4abeef1a8b2c0b1a8e'; // <-- required, from developer.spotify.com/dashboard
   const SPOTIFY_REDIRECT_URI = window.location.origin + window.location.pathname;
-  const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state';
+  const SPOTIFY_SCOPES = 'streaming user-read-email user-read-private user-modify-playback-state user-read-playback-state playlist-read-private playlist-read-collaborative';
 
   let spotifyAccessToken = null;
   let spotifyTokenExpiry = 0;
@@ -1958,6 +1958,7 @@
   let spotifyPositionAtMs = 0;
   let spotifyTickerId = null;
   let spotifyPlaylists = [];        // the user's real playlists, loaded once connected
+  let spotifyPlaylistsStatus = 'idle'; // 'idle' | 'loading' | 'loaded' | 'error' — drives the modal's list state
   let spotifyContextName = 'Live search'; // label shown in the now-playing overlay eyebrow
 
   function b64urlFromBuffer(buf){
@@ -2107,11 +2108,17 @@
   }
 
   async function spotifyGetPlaylistMeta(playlistId){
-    const fields = encodeURIComponent('id,name,images,tracks.total');
-    const res = await spotifyApi(`/playlists/${playlistId}?fields=${fields}`);
+    // no `fields` filter here — the full playlist object is small enough, and it
+    // removes any risk of the field-selector syntax itself causing a 400
+    const res = await spotifyApi(`/playlists/${playlistId}`);
     if(res.status === 404) throw new Error('not-found');
     if(res.status === 403) throw new Error('private');
-    if(!res.ok) throw new Error('failed');
+    if(res.status === 401) throw new Error('expired');
+    if(!res.ok){
+      const body = await res.text().catch(() => '');
+      console.warn('Spotify playlist lookup failed:', res.status, body);
+      throw new Error('failed');
+    }
     return res.json();
   }
 
@@ -2352,13 +2359,17 @@
   renderPlaylistSidebar();
 
   async function loadSpotifyPlaylists(){
+    spotifyPlaylistsStatus = 'loading';
     try{
       spotifyPlaylists = await spotifyGetUserPlaylists();
+      spotifyPlaylistsStatus = 'loaded';
       renderPlaylistSidebar();
     } catch(err){
+      spotifyPlaylistsStatus = 'error';
       console.warn('Could not load Spotify playlists:', err);
       // leave the demo sidebar in place — connecting still works for search/playback
     }
+    if(cpSource === 'spotify') cpRenderImportList();
   }
 
   function openLocalPlaylist(id){
@@ -2470,10 +2481,12 @@
       return;
     }
     if(!spotifyPlaylists.length){
+      if(spotifyPlaylistsStatus === 'error'){
+        cpImportList.innerHTML = `<p class="cp-empty-note" style="color:var(--red)">Couldn't load your playlists — <a id="cpRetryLoad">try again</a>, or paste a link above instead.</p>`;
+        return;
+      }
       cpImportList.innerHTML = `<p class="cp-empty-note">Loading your Spotify playlists…</p>`;
-      loadSpotifyPlaylists().then(() => {
-        if(cpSource === 'spotify') cpRenderImportList();
-      });
+      if(spotifyPlaylistsStatus === 'idle') loadSpotifyPlaylists();
       return;
     }
     cpImportList.innerHTML = spotifyPlaylists.map(p => {
@@ -2487,6 +2500,11 @@
   }
 
   cpImportList.addEventListener('click', (e) => {
+    if(e.target.closest('#cpRetryLoad')){
+      spotifyPlaylistsStatus = 'idle';
+      cpRenderImportList();
+      return;
+    }
     if(e.target.closest('#cpLinkClearBtn')){
       cpLinkPlaylist = null;
       cpSelectedSpotifyId = null;
@@ -2530,11 +2548,16 @@
       cpRenderImportList();
       cpUpdateCreateEnabled();
     } catch(err){
+      if(err.message !== 'private' && err.message !== 'not-found' && err.message !== 'expired'){
+        console.warn('Import from link failed:', err);
+      }
       cpLinkError.textContent = err.message === 'private'
         ? "That playlist is private — you'll need to be logged into the account that owns it."
         : err.message === 'not-found'
           ? "Couldn't find that playlist. Double check the link."
-          : "Couldn't load that playlist. Try again.";
+          : err.message === 'expired'
+            ? 'Your Spotify session expired — reconnect (top of the sidebar) and try again.'
+            : "Couldn't load that playlist. Try again.";
       cpLinkError.style.display = 'block';
     } finally {
       cpLinkBtn.disabled = false;
@@ -3957,8 +3980,22 @@
   });
 
   // ---------------- Spotify connect wiring + boot ----------------
-  document.getElementById('spotifyConnectBtn').addEventListener('click', () => {
-    if(spotifyAccessToken) return; // already connected, nothing to do
+  function spotifyDisconnect(){
+    sessionStorage.removeItem('sp_token');
+    sessionStorage.removeItem('sp_token_expiry');
+    sessionStorage.removeItem('sp_refresh');
+    spotifyAccessToken = null;
+    spotifyTokenExpiry = null;
+    if(spotifyPlayer){ try{ spotifyPlayer.disconnect(); }catch(err){} spotifyPlayer = null; }
+    spotifyPlaylists = [];
+    spotifyPlaylistsStatus = 'idle';
+    setConnectButtonState('disconnected');
+  }
+
+  const spotifyConnectBtn = document.getElementById('spotifyConnectBtn');
+  spotifyConnectBtn.title = 'Click to disconnect';
+  spotifyConnectBtn.addEventListener('click', () => {
+    if(spotifyAccessToken){ spotifyDisconnect(); return; }
     if(SPOTIFY_CLIENT_ID === 'YOUR_SPOTIFY_CLIENT_ID'){
       alert('Add your Spotify Client ID first — see the setup comment near the top of this file.');
       return;
