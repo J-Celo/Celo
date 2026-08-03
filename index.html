@@ -621,6 +621,21 @@
   }
   .global-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
+  .offline-banner{
+    position:fixed; top:0; left:0; right:0;
+    z-index:500;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:9px 16px calc(9px + env(safe-area-inset-top));
+    background:linear-gradient(90deg, #3a2a12, #2a2010);
+    border-bottom:1px solid rgba(255,190,90,0.25);
+    color:#ffd9a0;
+    font-size:12.5px; font-weight:600;
+    transform:translateY(-100%);
+    transition:transform .25s ease;
+  }
+  .offline-banner.show{ transform:translateY(0); }
+  .offline-banner svg{ width:15px; height:15px; flex-shrink:0; }
+
   .greeting{
     font-size:clamp(24px, 3.4vw, 34px);
     font-weight:700;
@@ -844,6 +859,7 @@
   .lib-table .title-cell small{ color:var(--text-faint); font-size:12.5px; display:block; }
   .lib-table .dur{ color:var(--text-faint); text-align:right; width:60px; font-family:'JetBrains Mono', monospace; font-size:12.5px; }
   .lib-table .heart-cell{ width:36px; }
+  .lib-table .menu-cell{ width:32px; }
   .heart-btn{
     background:none; border:none; color:var(--text-faint); cursor:pointer;
     display:flex; align-items:center; justify-content:center; padding:4px;
@@ -1048,7 +1064,7 @@
   .sv-song-list{ display:flex; flex-direction:column; }
   .sv-song-row{
     display:grid;
-    grid-template-columns:40px 1fr auto auto;
+    grid-template-columns:40px 1fr auto auto auto;
     align-items:center;
     gap:14px;
     padding:8px 10px;
@@ -1065,6 +1081,56 @@
   .sv-song-row .meta strong{ display:flex; align-items:center; gap:7px; font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sv-song-row .meta small{ color:var(--text-faint); font-size:12.5px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sv-song-row .dur{ color:var(--text-faint); font-family:'JetBrains Mono', monospace; font-size:12.5px; }
+
+  .row-menu-btn{
+    background:none; border:none; color:var(--text-dim); opacity:.7; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:6px; border-radius:6px;
+    transition:opacity .12s ease, background .12s ease;
+  }
+  .row-menu-btn:hover, .row-menu-btn.active{ opacity:1; background:var(--card-hover); }
+  .row-menu-btn svg{ width:17px; height:17px; }
+
+  .atp-menu{
+    position:fixed; z-index:500; width:240px;
+    background:var(--card); border:1px solid var(--line);
+    border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.5);
+    padding:6px; display:none; max-height:320px; overflow-y:auto;
+    animation:reveal-up .16s cubic-bezier(.22,.7,.35,1) both;
+  }
+  .atp-menu.open{ display:block; }
+  .atp-menu-header{ font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); padding:8px 10px 6px; }
+  .atp-menu-item{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    background:none; border:none; color:var(--text); font-size:13.5px; padding:8px 9px;
+    border-radius:8px; cursor:pointer;
+  }
+  .atp-menu-item:hover{ background:var(--card-hover); }
+  .atp-menu-item .atp-thumb{ width:26px; height:26px; border-radius:6px; background:var(--card-hover); flex-shrink:0; background-size:cover; background-position:center; }
+  .atp-menu-item strong{ font-weight:600; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .atp-menu-item small{ display:block; color:var(--text-faint); font-size:11px; }
+  .atp-menu-empty{ padding:10px 9px; font-size:12.5px; color:var(--text-faint); }
+  .atp-menu-new{
+    display:flex; align-items:center; gap:8px; width:100%; background:none; border:none;
+    color:var(--accent); font-weight:700; font-size:13.5px; padding:9px; border-radius:8px; cursor:pointer;
+    border-top:1px solid var(--line); margin-top:4px;
+  }
+  .atp-menu-new:hover{ background:var(--card-hover); }
+  .atp-menu-new-form{ display:flex; gap:6px; padding:6px 2px 2px; }
+  .atp-menu-new-form input{
+    flex:1; min-width:0; background:var(--card-hover); border:1px solid var(--line); border-radius:7px;
+    color:var(--text); font-size:13px; padding:7px 9px;
+  }
+  .atp-menu-new-form button{
+    background:var(--accent); color:#06070C; border:none; border-radius:7px; font-weight:700;
+    font-size:12.5px; padding:0 12px; cursor:pointer;
+  }
+  .atp-toast{
+    position:fixed; bottom:110px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--card); border:1px solid var(--line);
+    color:var(--text); font-size:13px; padding:10px 16px; border-radius:10px; z-index:600;
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
+  }
+  .atp-toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   .sv-artist-row{
     display:flex; gap:20px; overflow-x:auto; padding-bottom:6px;
@@ -2176,7 +2242,7 @@
         <div class="shelf-head"><h2 class="display">Liked Songs</h2></div>
         <table class="lib-table">
           <thead>
-            <tr><th class="idx">Side</th><th>Title</th><th></th><th class="dur">Time</th><th></th></tr>
+            <tr><th class="idx">Side</th><th>Title</th><th></th><th class="dur">Time</th><th></th><th></th></tr>
           </thead>
           <tbody id="libraryBody"></tbody>
         </table>
@@ -2197,7 +2263,7 @@
         </div>
         <table class="lib-table">
           <thead>
-            <tr><th class="idx">Side</th><th>Title</th><th></th><th class="dur">Time</th><th></th></tr>
+            <tr><th class="idx">Side</th><th>Title</th><th></th><th class="dur">Time</th><th></th><th></th></tr>
           </thead>
           <tbody id="savedPreviewsBody"></tbody>
         </table>
@@ -2246,6 +2312,10 @@
   </main>
 
   <div class="global-toast" id="globalToast"></div>
+  <div class="offline-banner" id="offlineBanner" role="status" aria-live="polite">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+    You're offline — some things won't load until you're back
+  </div>
 
   <!-- ================= PLAYER BAR ================= -->
   <footer class="player">
@@ -2509,6 +2579,21 @@
         </div>
       </div>
     </div>
+
+    <!-- ================= ADD TO PLAYLIST — opened from the ⋯ menu on a search row ================= -->
+    <div class="atp-menu" id="atpMenu" role="menu" aria-hidden="true">
+      <div class="atp-menu-header">Add to playlist</div>
+      <div id="atpList"></div>
+      <button type="button" class="atp-menu-new" id="atpNewBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New playlist
+      </button>
+      <div class="atp-menu-new-form" id="atpNewForm" style="display:none;">
+        <input type="text" id="atpNewInput" placeholder="Playlist name" autocomplete="off" maxlength="60">
+        <button type="button" id="atpNewConfirm">Add</button>
+      </div>
+    </div>
+    <div class="atp-toast" id="atpToast"></div>
   </div>
 
   <!-- ================= RECENTLY PLAYED — full history modal ================= -->
@@ -2605,6 +2690,7 @@
       scope: SPOTIFY_SCOPES,
       code_challenge_method: 'S256',
       code_challenge: challenge,
+      show_dialog: 'true',
     });
     window.location = 'https://accounts.spotify.com/authorize?' + params.toString();
   }
@@ -2673,7 +2759,6 @@
       spotifyDeviceId = device_id;
       spotifyReady = true;
       setConnectButtonState('connected');
-      spotifySetRepeat(repeatMode); // make sure the device matches whatever the repeat button already shows
     });
     spotifyPlayer.addListener('not_ready', () => { spotifyReady = false; });
     spotifyPlayer.addListener('initialization_error', ({ message }) => console.error('Spotify init error:', message));
@@ -3180,6 +3265,7 @@
     if(cpSource === 'spotify') cpRenderImportList();
   }
 
+  let openPlaylistTracks = null; // the track list of whichever local playlist is currently open in the dropdown, for playPlaylistTrackAt
   function openLocalPlaylist(id){
     const p = localPlaylists.find(pl => pl.id === id);
     if(!p) return;
@@ -3187,20 +3273,24 @@
     clearSearchInput();
     contentEl.classList.remove('is-searching');
     if(!p.tracks.length){
-      renderResultsState(`<div class="sr-state">${escapeHtml(p.name)} is empty. Import a Spotify playlist next time you create one to fill it, or add tracks here as that feature lands.</div>`);
+      openPlaylistTracks = null;
+      renderResultsState(`<div class="sr-state">${escapeHtml(p.name)} is empty. Add songs from search using the ⋯ menu next to any track.</div>`);
       searchResults.classList.add('open');
       return;
     }
-    spotifyQueue = p.tracks;
+    openPlaylistTracks = p.tracks;
     spotifyContextName = p.name;
-    searchResults.innerHTML = p.tracks.map((t, i) => `
-      <div class="sr-row" data-idx="${i}" data-source="spotify">
-        <div class="sr-thumb" style="background-image:url('${t.album.images[2] ? t.album.images[2].url : (t.album.images[0]||{}).url || ''}')"></div>
-        <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
-        <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
-      </div>`).join('');
+    searchResults.innerHTML = p.tracks.map((t, i) => {
+      const d = playlistTrackDisplay(t);
+      return `
+      <div class="sr-row" data-idx="${i}" data-source="playlist">
+        <div class="sr-thumb" style="${d.thumb ? `background-image:url('${d.thumb}')` : `background:${palette[i % palette.length]}`}"></div>
+        <div class="sr-meta"><strong>${escapeHtml(d.title)}</strong><small>${escapeHtml(d.artist)}</small></div>
+        <div class="sr-dur">${fmtTime(d.dur)}</div>
+      </div>`;
+    }).join('');
     searchResults.classList.add('open');
-    playSpotifyTrack(p.tracks[0], 0);
+    playPlaylistTrackAt(p.tracks, 0);
   }
 
   async function openSpotifyPlaylist(id, name){
@@ -3273,6 +3363,13 @@
     const localId = item.dataset.localPlaylist;
     if(localId){
       openLocalPlaylist(localId);
+      return;
+    }
+    if(item.classList.contains('liked')){
+      clearSearchInput();
+      renderSearchView('');
+      document.getElementById('librarySection').scrollIntoView({ behavior:'smooth', block:'start' });
+      ensureSpotifyLibraryLoaded();
       return;
     }
     playTrack(parseInt(item.dataset.track, 10));
@@ -3484,6 +3581,7 @@
   cpSourceSpotifyBtn.addEventListener('click', () => cpSetSource('spotify'));
   cpNameInput.addEventListener('input', cpUpdateCreateEnabled);
 
+  const cpFocusTrap = setupModalFocusTrap(cpOverlay);
   function openCreatePlaylistModal(){
     cpNameInput.value = '';
     cpSelectedSpotifyId = null;
@@ -3493,11 +3591,12 @@
     cpSetSource('empty');
     cpOverlay.classList.add('open');
     cpOverlay.setAttribute('aria-hidden', 'false');
-    setTimeout(() => cpNameInput.focus(), 50);
+    cpFocusTrap.open(cpNameInput);
   }
   function closeCreatePlaylistModal(){
     cpOverlay.classList.remove('open');
     cpOverlay.setAttribute('aria-hidden', 'true');
+    cpFocusTrap.close();
   }
   createPlaylistBtn.addEventListener('click', openCreatePlaylistModal);
   cpCancelBtn.addEventListener('click', closeCreatePlaylistModal);
@@ -3695,6 +3794,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           </button>
         </td>
+        <td class="menu-cell">
+          <button class="row-menu-btn" data-row-menu="demo" data-row-menu-track="${t.id}" aria-label="More options for ${escapeHtml(t.title)}" aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+          </button>
+        </td>
       </tr>`).join('');
 
     const emptyState = document.getElementById('emptyState');
@@ -3759,10 +3863,16 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
           </button>
         </td>
+        <td class="menu-cell">
+          <button class="row-menu-btn" data-row-menu="saved-preview" data-row-menu-idx="${i}" aria-label="More options for ${escapeHtml(p.title)}" aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+          </button>
+        </td>
       </tr>`).join('');
   }
   renderSavedPreviews();
   document.getElementById('savedPreviewsBody').addEventListener('click', (e) => {
+    if(e.target.closest('[data-row-menu]')) return; // handled by the shared add-to-playlist menu listener
     const unheart = e.target.closest('[data-preview-unheart]');
     if(unheart){
       e.stopPropagation();
@@ -3850,6 +3960,7 @@
 
   libraryBody.addEventListener('click', (e) => {
     if(e.target.closest('.drag-handle')) return;
+    if(e.target.closest('[data-row-menu]')) return; // handled by the shared add-to-playlist menu listener
     const heart = e.target.closest('[data-heart]');
     if(heart){
       const id = parseInt(heart.dataset.heart, 10);
@@ -3956,6 +4067,9 @@
         <div class="dur mono">${fmtTime(t.dur)}</div>
         <button class="heart-btn ${liked.has(t.id) ? 'liked' : ''}" data-heart="${t.id}" aria-label="Save">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>
+        <button class="row-menu-btn" data-row-menu="demo" data-row-menu-track="${t.id}" aria-label="More options for ${escapeHtml(t.title)}" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
         </button>
       </div>`;
   }
@@ -4081,6 +4195,9 @@
         <div class="meta"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.artist)}</small></div>
         <div class="dur mono">${fmtTime(item.dur)}</div>
         ${heart}
+        <button class="row-menu-btn" data-row-menu="catalog" data-row-menu-idx="${i}" aria-label="More options for ${escapeHtml(item.title)}" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+        </button>
       </div>`;
   }
 
@@ -4101,6 +4218,211 @@
       }, null);
     }
   }
+
+  // ---------------- add to playlist (⋯ menu on a search row) ----------------
+  // Local demo tracks, Spotify catalog hits, and iTunes previews all have different
+  // shapes, so everything gets normalized into one canonical shape before it's
+  // stored in a local playlist — that way opening the playlist later can render
+  // and play any mix of them correctly, alongside older Spotify-imported playlists
+  // (whose tracks are still the raw Spotify shape from before this feature existed).
+  function canonicalTrackFor(kind, data){
+    if(kind === 'demo'){
+      return { kind:'demo', id:data.id, uri:null, title:data.title, artist:data.artist, thumb:null, art:data.art, dur:data.dur, src:data.src };
+    }
+    if(kind === 'spotify'){
+      const t = data;
+      return {
+        kind:'spotify', id:t.id, uri:t.uri, title:t.name, artist:(t.artists || []).map(a => a.name).join(', '),
+        thumb:(t.album && t.album.images[2]) ? t.album.images[2].url : ((t.album && t.album.images[0]) ? t.album.images[0].url : ''),
+        dur:t.duration_ms / 1000, src:null
+      };
+    }
+    // preview (iTunes) — data is a catalog item {title, artist, thumb, dur, raw:{trackId, previewUrl, ...}}
+    const c = data;
+    return { kind:'preview', id:c.raw.trackId, uri:null, title:c.title, artist:c.artist, thumb:c.thumb, dur:c.dur, src:c.raw.previewUrl };
+  }
+
+  function playlistTrackDisplay(t){
+    if(t.kind) return { title:t.title, artist:t.artist, thumb:t.thumb || '', dur:t.dur };
+    // legacy raw Spotify track object, from a playlist imported before this feature existed
+    return {
+      title:t.name, artist:(t.artists || []).map(a => a.name).join(', '),
+      thumb:(t.album && t.album.images[2]) ? t.album.images[2].url : ((t.album && t.album.images[0]) ? t.album.images[0].url : ''),
+      dur:t.duration_ms / 1000
+    };
+  }
+  function playlistTrackIdentity(t){
+    if(t.kind === 'demo') return 'dm:' + t.id;
+    if(t.kind === 'preview') return 'pv:' + t.id;
+    if(t.kind === 'spotify') return 'sp:' + t.uri;
+    if(t.uri) return 'sp:' + t.uri; // legacy raw Spotify track object
+    return 'x:' + (t.name || t.title) + '|' + (t.artists || []).map(a => a.name).join(',');
+  }
+  function playPlaylistTrackAt(list, idx){
+    const t = list[idx];
+    if(!t) return;
+    if(t.kind === 'demo'){
+      playTrackObj({ title:t.title, artist:t.artist, art:t.art, src:t.src, dur:t.dur }, t.id);
+      return;
+    }
+    if(t.kind === 'preview'){
+      playTrackObj({ title:t.title, artist:t.artist, art:t.thumb ? `url('${t.thumb}') center/cover no-repeat` : palette[0], src:t.src, dur:t.dur }, null);
+      return;
+    }
+    // spotify (canonical or legacy raw) — the next/prev queue only covers the
+    // spotify-playable entries in this playlist, since that's what the Web
+    // Playback SDK queue can actually traverse
+    const toRaw = x => x.kind === 'spotify'
+      ? { uri:x.uri, id:x.id, name:x.title, artists:[{ name:x.artist }], album:{ images:[{ url:x.thumb }] }, duration_ms:x.dur * 1000 }
+      : x;
+    const spotifyEntries = list.filter(x => x.kind === 'spotify' || (!x.kind && x.uri)).map(toRaw);
+    const raw = toRaw(t);
+    const queueIdx = spotifyEntries.findIndex(x => x.uri === raw.uri);
+    spotifyQueue = spotifyEntries;
+    playSpotifyTrack(raw, queueIdx === -1 ? 0 : queueIdx);
+  }
+
+  function addTrackToLocalPlaylist(playlistId, track){
+    const p = localPlaylists.find(pl => pl.id === playlistId);
+    if(!p) return 'missing';
+    const key = playlistTrackIdentity(track);
+    if(p.tracks.some(existing => playlistTrackIdentity(existing) === key)) return 'duplicate';
+    p.tracks.push(track);
+    saveLocalPlaylists();
+    renderPlaylistSidebar();
+    return 'added';
+  }
+  function createLocalPlaylistWithTrack(name, track){
+    const newPlaylist = {
+      id: 'lp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name, source:'local', createdAt:Date.now(),
+      paletteIdx: localPlaylists.length + 2,
+      tracks: [track],
+    };
+    localPlaylists.push(newPlaylist);
+    saveLocalPlaylists();
+    renderPlaylistSidebar();
+  }
+
+  const atpMenu = document.getElementById('atpMenu');
+  const atpList = document.getElementById('atpList');
+  const atpNewBtn = document.getElementById('atpNewBtn');
+  const atpNewForm = document.getElementById('atpNewForm');
+  const atpNewInput = document.getElementById('atpNewInput');
+  const atpNewConfirm = document.getElementById('atpNewConfirm');
+  const atpToast = document.getElementById('atpToast');
+  let atpPendingTrack = null;
+  let atpToastTimer = null;
+
+  function showAtpToast(msg){
+    atpToast.textContent = msg;
+    atpToast.classList.add('show');
+    clearTimeout(atpToastTimer);
+    atpToastTimer = setTimeout(() => atpToast.classList.remove('show'), 1800);
+  }
+  function closeAtpMenu(){
+    atpMenu.classList.remove('open');
+    atpMenu.setAttribute('aria-hidden', 'true');
+    atpNewForm.style.display = 'none';
+    atpNewBtn.style.display = '';
+    document.querySelectorAll('.row-menu-btn.active').forEach(b => b.classList.remove('active'));
+    atpPendingTrack = null;
+  }
+  function openAtpMenu(btn, track){
+    atpPendingTrack = track;
+    document.querySelectorAll('.row-menu-btn.active').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const d = playlistTrackDisplay(track);
+    atpList.innerHTML = localPlaylists.length
+      ? localPlaylists.map(p => `
+          <button type="button" class="atp-menu-item" data-atp-playlist="${p.id}">
+            <div class="atp-thumb" style="${d.thumb ? `background-image:url('${d.thumb}')` : `background:${palette[p.paletteIdx % palette.length]}`}"></div>
+            <div><strong>${escapeHtml(p.name)}</strong><small>${p.tracks.length} song${p.tracks.length === 1 ? '' : 's'}</small></div>
+          </button>`).join('')
+      : `<div class="atp-menu-empty">No playlists yet — create one below.</div>`;
+
+    atpNewForm.style.display = 'none';
+    atpNewBtn.style.display = '';
+    atpNewInput.value = '';
+    atpMenu.classList.add('open');
+    atpMenu.setAttribute('aria-hidden', 'false');
+
+    const r = btn.getBoundingClientRect();
+    const menuW = 240;
+    let left = r.right - menuW;
+    if(left < 8) left = 8;
+    if(left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+    const top = r.bottom + 6;
+    atpMenu.style.left = left + 'px';
+    atpMenu.style.top = top + 'px';
+    requestAnimationFrame(() => {
+      const menuH = atpMenu.offsetHeight;
+      if(top + menuH > window.innerHeight - 8) atpMenu.style.top = Math.max(8, r.top - menuH - 6) + 'px';
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const menuBtn = e.target.closest('[data-row-menu]');
+    if(menuBtn){
+      e.stopPropagation();
+      const wasOpenOnThisBtn = atpMenu.classList.contains('open') && menuBtn.classList.contains('active');
+      closeAtpMenu();
+      if(wasOpenOnThisBtn) return; // clicking the same ⋯ again just closes it
+      let track;
+      if(menuBtn.dataset.rowMenu === 'demo'){
+        const t = tracks[parseInt(menuBtn.dataset.rowMenuTrack, 10)];
+        if(!t) return;
+        track = canonicalTrackFor('demo', t);
+      } else if(menuBtn.dataset.rowMenu === 'saved-preview'){
+        const p = likedPreviews[parseInt(menuBtn.dataset.rowMenuIdx, 10)];
+        if(!p) return;
+        track = canonicalTrackFor('preview', { title:p.title, artist:p.artist, thumb:p.thumb, dur:p.dur, raw:{ trackId:p.trackId, previewUrl:p.previewUrl } });
+      } else if(menuBtn.dataset.rowMenu === 'spotify-lib'){
+        const t = spotifyChartTracks[parseInt(menuBtn.dataset.rowMenuIdx, 10)];
+        if(!t) return;
+        track = canonicalTrackFor('spotify', t);
+      } else {
+        const item = svCatalogResults[parseInt(menuBtn.dataset.rowMenuIdx, 10)];
+        if(!item) return;
+        track = item.kind === 'spotify' ? canonicalTrackFor('spotify', item.raw) : canonicalTrackFor('preview', item);
+      }
+      openAtpMenu(menuBtn, track);
+      return;
+    }
+    if(atpMenu.classList.contains('open') && !e.target.closest('#atpMenu')) closeAtpMenu();
+  });
+  atpList.addEventListener('click', (e) => {
+    const item = e.target.closest('[data-atp-playlist]');
+    if(!item || !atpPendingTrack) return;
+    const result = addTrackToLocalPlaylist(item.dataset.atpPlaylist, atpPendingTrack);
+    const name = (localPlaylists.find(p => p.id === item.dataset.atpPlaylist) || {}).name || 'playlist';
+    showAtpToast(result === 'duplicate' ? `Already in ${name}` : `Added to ${name}`);
+    closeAtpMenu();
+  });
+  atpNewBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    atpNewBtn.style.display = 'none';
+    atpNewForm.style.display = 'flex';
+    atpNewInput.focus();
+  });
+  function confirmAtpNewPlaylist(){
+    const name = atpNewInput.value.trim();
+    if(!name || !atpPendingTrack) return;
+    createLocalPlaylistWithTrack(name, atpPendingTrack);
+    showAtpToast(`Added to ${name}`);
+    closeAtpMenu();
+  }
+  atpNewConfirm.addEventListener('click', (e) => { e.stopPropagation(); confirmAtpNewPlaylist(); });
+  atpNewInput.addEventListener('click', (e) => e.stopPropagation());
+  atpNewInput.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); confirmAtpNewPlaylist(); }
+    if(e.key === 'Escape'){ e.stopPropagation(); closeAtpMenu(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && atpMenu.classList.contains('open')) closeAtpMenu();
+  });
+  window.addEventListener('resize', () => { if(atpMenu.classList.contains('open')) closeAtpMenu(); });
 
   async function loadCatalogFallback(query){
     const myToken = ++svCatalogToken;
@@ -4180,6 +4502,7 @@
   });
 
   searchView.addEventListener('click', (e) => {
+    if(e.target.closest('[data-row-menu]')) return; // handled by the shared add-to-playlist menu listener
     const showAll = e.target.closest('[data-show-tab]');
     if(showAll){ e.preventDefault(); svActiveTab = showAll.dataset.showTab; renderSearchView(searchInput.value, true); return; }
 
@@ -4496,6 +4819,11 @@
       return;
     }
     const idx = parseInt(row.dataset.idx, 10);
+    if(row.dataset.source === 'playlist'){
+      if(openPlaylistTracks) playPlaylistTrackAt(openPlaylistTracks, idx);
+      closeResults();
+      return;
+    }
     if(row.dataset.source === 'spotify'){
       const t = spotifyQueue[idx];
       if(t) playSpotifyTrack(t, idx);
@@ -4911,6 +5239,22 @@
   });
   updateDiscEmptyState(); // set the initial affordance before anything's queued
 
+  // ---------------- offline detection ----------------
+  // navigator.onLine only reliably reports "definitely offline" (false positives for
+  // "online" are common — e.g. connected to a router with no internet), so this is a
+  // best-effort signal, not a guarantee every fetch will succeed. Still much better
+  // than the previous behavior of each fetch failing on its own with no unified cue.
+  const offlineBanner = document.getElementById('offlineBanner');
+  function updateOnlineStatus(){
+    const offline = !navigator.onLine;
+    offlineBanner.classList.toggle('show', offline);
+    if(!offline && updateOnlineStatus.wasOffline) showGlobalToast("Back online");
+    updateOnlineStatus.wasOffline = offline;
+  }
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
+
   // ---------------- global toast (small reusable confirmation bubble) ----------------
   const globalToast = document.getElementById('globalToast');
   let globalToastTimer = null;
@@ -5049,6 +5393,13 @@
       if(spotifyExpectedUri === track.uri) spotifyExpectedUri = null;
     }, 4000);
     await spotifyPlayUri(track.uri);
+    if(!spotifyRepeatSyncedThisSession){
+      // now that something has actually played, this device is "active" and the
+      // repeat endpoint will actually stick — syncing it any earlier (e.g. right
+      // on device-ready) fails silently since Spotify requires an active device
+      spotifyRepeatSyncedThisSession = true;
+      spotifySetRepeat(repeatMode);
+    }
   }
 
   function updatePlayIcon(playing){
@@ -5376,15 +5727,52 @@
   setActivePreset(savedActivePreset);
   refreshEqUI();
 
+  // ---------------- modal focus trap (keyboard/screen-reader accessibility) ----------------
+  // Used by every settings-overlay-style modal (Settings, Recently Played, Shortcuts,
+  // Create Playlist): keeps Tab cycling within the open modal instead of leaking
+  // focus out to the page behind it, and returns focus to whatever triggered the
+  // modal once it closes instead of dropping it back to <body>.
+  function getFocusable(container){
+    return Array.from(container.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'))
+      .filter(el => !el.disabled && el.offsetParent !== null);
+  }
+  function setupModalFocusTrap(overlay){
+    let lastFocused = null;
+    function onKeydown(e){
+      if(e.key !== 'Tab') return;
+      const focusable = getFocusable(overlay);
+      if(!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if(e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+    }
+    return {
+      open(initialFocusEl){
+        lastFocused = document.activeElement;
+        overlay.addEventListener('keydown', onKeydown);
+        const target = initialFocusEl || getFocusable(overlay)[0];
+        if(target) setTimeout(() => target.focus(), 50);
+      },
+      close(){
+        overlay.removeEventListener('keydown', onKeydown);
+        if(lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus();
+        lastFocused = null;
+      }
+    };
+  }
+
   function openSettings(){
     refreshEqUI();
     settingsOverlay.classList.add('open');
     settingsOverlay.setAttribute('aria-hidden', 'false');
+    settingsFocusTrap.open();
   }
   function closeSettings(){
     settingsOverlay.classList.remove('open');
     settingsOverlay.setAttribute('aria-hidden', 'true');
+    settingsFocusTrap.close();
   }
+  const settingsFocusTrap = setupModalFocusTrap(settingsOverlay);
   settingsBtn.addEventListener('click', openSettings);
   settingsCloseBtn.addEventListener('click', closeSettings);
   settingsBackdrop.addEventListener('click', closeSettings);
@@ -5398,11 +5786,12 @@
   const recentBackdrop = document.getElementById('recentBackdrop');
   const recentCloseBtn = document.getElementById('recentCloseBtn');
   const recentShowAllBtn = document.getElementById('recentShowAllBtn');
+  const recentFocusTrap = setupModalFocusTrap(recentOverlay);
 
   function renderRecentModal(){
     if(usingSpotifyHome && spotifyRecentTracks.length){
       recentModalBody.innerHTML = spotifyRecentTracks.map((t, i) => `
-        <div class="sr-row" data-recent-spotify-idx="${i}">
+        <div class="sr-row" data-recent-spotify-idx="${i}" tabindex="0">
           <div class="sr-thumb" style="background-image:url('${(t.album && t.album.images[2]) ? t.album.images[2].url : ((t.album && t.album.images[0]) ? t.album.images[0].url : '')}');background-size:cover;background-position:center;"></div>
           <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
           <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
@@ -5415,7 +5804,7 @@
       return;
     }
     recentModalBody.innerHTML = rows.map(t => `
-      <div class="sr-row" data-recent-id="${t.id}">
+      <div class="sr-row" data-recent-id="${t.id}" tabindex="0">
         <div class="sr-thumb" style="background:${t.art}"></div>
         <div class="sr-meta"><strong>${escapeHtml(t.title)}</strong><small>${escapeHtml(t.artist)}</small></div>
         <div class="sr-dur">${fmtTime(t.dur)}</div>
@@ -5425,10 +5814,12 @@
     renderRecentModal();
     recentOverlay.classList.add('open');
     recentOverlay.setAttribute('aria-hidden', 'false');
+    recentFocusTrap.open(recentCloseBtn);
   }
   function closeRecentModal(){
     recentOverlay.classList.remove('open');
     recentOverlay.setAttribute('aria-hidden', 'true');
+    recentFocusTrap.close();
   }
   recentShowAllBtn.addEventListener('click', (e) => { e.preventDefault(); openRecentModal(); });
   recentCloseBtn.addEventListener('click', closeRecentModal);
@@ -5453,13 +5844,16 @@
   const shortcutsBackdrop = document.getElementById('shortcutsBackdrop');
   const shortcutsCloseBtn = document.getElementById('shortcutsCloseBtn');
   const shortcutsBtn = document.getElementById('shortcutsBtn');
+  const shortcutsFocusTrap = setupModalFocusTrap(shortcutsOverlay);
   function openShortcuts(){
     shortcutsOverlay.classList.add('open');
     shortcutsOverlay.setAttribute('aria-hidden', 'false');
+    shortcutsFocusTrap.open();
   }
   function closeShortcuts(){
     shortcutsOverlay.classList.remove('open');
     shortcutsOverlay.setAttribute('aria-hidden', 'true');
+    shortcutsFocusTrap.close();
   }
   shortcutsBtn.addEventListener('click', openShortcuts);
   shortcutsCloseBtn.addEventListener('click', closeShortcuts);
@@ -5930,6 +6324,7 @@
     usingSpotifyChart = false;
     spotifyLibraryIsReal = false;
     spotifySavedUris = new Set();
+    spotifyRepeatSyncedThisSession = false;
     const libTitleEl = document.querySelector('#librarySection .shelf-head h2');
     if(libTitleEl) libTitleEl.textContent = 'Liked Songs';
     renderLibrary();
@@ -5983,6 +6378,7 @@
   let spotifySavedUris = new Set(); // uris confirmed saved, so hearts render filled
   let currentSpotifyUri = null;
   let currentSpotifyTrackObj = null;
+  let spotifyRepeatSyncedThisSession = false;
 
   async function loadSpotifyLibrary(){
     try{
@@ -6027,12 +6423,26 @@
     if(onChange) onChange(nowSaved);
     try{
       const res = nowSaved ? await spotifySaveTrack(trackId) : await spotifyRemoveSavedTrack(trackId);
-      if(!res.ok) throw new Error('save/unsave failed: ' + res.status);
+      if(!res.ok){
+        const err = new Error('save/unsave failed: ' + res.status);
+        err.status = res.status;
+        err.detail = await spotifyErrorDetail(res);
+        throw err;
+      }
     } catch(err){
       // revert on failure
       nowSaved ? spotifySavedUris.delete(uri) : spotifySavedUris.add(uri);
       if(onChange) onChange(!nowSaved);
-      console.warn('Could not update Spotify Liked Songs:', err);
+      console.warn('Could not update Spotify Liked Songs:', err && err.detail || err);
+      // 403 here almost always means the account connected before this app requested
+      // the library-write permission and hasn't re-authorized since — surface that
+      // specifically instead of a generic failure, since "reconnect" is the actual fix
+      showGlobalToast(
+        err && err.status === 403
+          ? "Can't save — reconnect Spotify to grant the new permission"
+          : "Couldn't reach Spotify to save that",
+        3500
+      );
       return;
     }
     if(spotifyLibraryIsReal){
@@ -6080,6 +6490,11 @@
         </td>
         <td class="dur mono">${fmtTime(t.duration_ms/1000)}</td>
         <td class="heart-cell">${heartCell}</td>
+        <td class="menu-cell">
+          <button class="row-menu-btn" data-row-menu="spotify-lib" data-row-menu-idx="${i}" aria-label="More options for ${escapeHtml(t.name)}" aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+          </button>
+        </td>
       </tr>`;
     }).join('');
     const emptyState = document.getElementById('emptyState');
