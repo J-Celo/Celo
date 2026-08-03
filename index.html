@@ -46,7 +46,22 @@
     --glow-violet:0 0 24px rgba(185,140,255,0.35);
     --grad:linear-gradient(120deg, var(--accent), var(--accent-2));
     --player-h:90px;
+    /* ---- ambient palette, updated live from whatever album art is currently
+       playing (see applyAmbientFromArt in JS). Falls back to the brand colors
+       until a track has been extracted. Registered below via @property so the
+       browser can smoothly interpolate between songs instead of hard-cutting. ---- */
+    --accent-live:#39F5C4;
+    --accent-2-live:#B98CFF;
+    /* used only by the elements that belong to "what's playing right now"
+       (play button, seek/volume fill, heart, toggled buttons, vinyl label) —
+       NOT the general brand gradient, which stays fixed everywhere else
+       (library cards, badges, etc.) so those don't confusingly retint every
+       time a different song starts playing */
+    --grad-live:linear-gradient(120deg, var(--accent-live), var(--accent-2-live));
   }
+  @property --accent-live{ syntax:'<color>'; inherits:true; initial-value:#39F5C4; }
+  @property --accent-2-live{ syntax:'<color>'; inherits:true; initial-value:#B98CFF; }
+  html{ transition:--accent-live 1.6s ease, --accent-2-live 1.6s ease; }
   *{ box-sizing:border-box; }
   body{
     margin:0;
@@ -81,19 +96,19 @@
   .aurora .blob-a{
     width:46vw; height:46vw; max-width:640px; max-height:640px;
     left:-6%; top:-12%;
-    background:radial-gradient(circle, rgba(57,245,196,0.24), transparent 68%);
+    background:radial-gradient(circle, color-mix(in srgb, var(--accent-live) 24%, transparent), transparent 68%);
     animation:aurora-a 24s ease-in-out infinite alternate;
   }
   .aurora .blob-b{
     width:42vw; height:42vw; max-width:600px; max-height:600px;
     right:-8%; top:-4%;
-    background:radial-gradient(circle, rgba(185,140,255,0.22), transparent 68%);
+    background:radial-gradient(circle, color-mix(in srgb, var(--accent-2-live) 22%, transparent), transparent 68%);
     animation:aurora-b 29s ease-in-out infinite alternate;
   }
   .aurora .blob-c{
     width:36vw; height:36vw; max-width:520px; max-height:520px;
     left:32%; bottom:-16%;
-    background:radial-gradient(circle, rgba(57,245,196,0.14), transparent 68%);
+    background:radial-gradient(circle, color-mix(in srgb, var(--accent-live) 14%, transparent), transparent 68%);
     animation:aurora-c 33s ease-in-out infinite alternate;
   }
   @keyframes aurora-a{ 0%{ transform:translate(0,0) scale(1); } 100%{ transform:translate(4vw,3vh) scale(1.12); } }
@@ -893,8 +908,8 @@
   }
   .heart-btn:hover{ opacity:1; }
   .heart-btn svg{ width:16px; height:16px; }
-  .heart-btn.liked{ color:var(--accent); opacity:1; }
-  .heart-btn.liked svg{ fill:var(--accent); filter:drop-shadow(0 0 5px rgba(57,245,196,0.6)); }
+  .heart-btn.liked{ color:var(--accent-live); opacity:1; }
+  .heart-btn.liked svg{ fill:var(--accent-live); filter:drop-shadow(0 0 5px rgba(57,245,196,0.6)); }
 
   .empty-state{
     display:flex;
@@ -1245,12 +1260,12 @@
     position:absolute;
     inset:-14px;
     border-radius:50%;
-    background:conic-gradient(from 0deg, var(--accent), var(--accent-2), var(--accent));
+    background:conic-gradient(from 0deg, var(--accent-live), var(--accent-2-live), var(--accent-live));
     opacity:0;
     filter:blur(10px);
     pointer-events:none;
     transform:scale(1);
-    transition:opacity .4s ease;
+    transition:opacity .4s ease, transform .4s ease;
     z-index:0;
     animation:np-spin 4s linear infinite;
   }
@@ -1265,18 +1280,24 @@
       conic-gradient(from 200deg, #1a1d30, #10131f 25%, #241a33 55%, #10131f 80%, #1a1d30);
     transition:box-shadow .3s ease;
     box-shadow:0 4px 14px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(57,245,196,0.18);
-    animation:np-spin 3s linear infinite;
-    animation-play-state:paused;
+    /* rotation itself is driven by JS (see vinylPhysicsTick) so it can spin up
+       and coast to a stop like a real turntable instead of snapping on/off */
     z-index:1;
   }
-  .np-art.spinning{ animation-play-state:running; box-shadow:0 4px 14px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(57,245,196,0.3), 0 0 14px rgba(57,245,196,0.25); }
+  .np-art.spinning{ box-shadow:0 4px 14px rgba(0,0,0,0.6), inset 0 0 0 1px rgba(57,245,196,0.3), 0 0 14px rgba(57,245,196,0.25); }
+  @keyframes art-swap-in{
+    0%{ opacity:.4; filter:brightness(1.5) saturate(1.25); }
+    100%{ opacity:1; filter:brightness(1) saturate(1); }
+  }
+  .np-art.art-swap, .npo-sleeve.art-swap, .npo-vinyl.art-swap{ animation:art-swap-in .5s cubic-bezier(.22,.7,.35,1) both; }
+  @media (prefers-reduced-motion: reduce){ .np-art.art-swap, .npo-sleeve.art-swap, .npo-vinyl.art-swap{ animation:none; } }
   .np-art::after{
     content:"";
     position:absolute; left:50%; top:50%;
     width:6px; height:6px;
     margin:-3px 0 0 -3px;
     border-radius:50%;
-    background:var(--grad);
+    background:var(--grad-live);
     box-shadow:0 0 6px rgba(57,245,196,0.8);
   }
   @keyframes np-spin{ to{ transform:rotate(360deg); } }
@@ -1337,7 +1358,7 @@
     transition:color .15s ease, transform .1s ease;
   }
   .transport-controls button:hover{ color:var(--text); }
-  .transport-controls button.toggled{ color:var(--accent); filter:drop-shadow(0 0 6px rgba(57,245,196,0.6)); }
+  .transport-controls button.toggled{ color:var(--accent-live); filter:drop-shadow(0 0 6px rgba(57,245,196,0.6)); }
   .transport-controls svg{ width:17px; height:17px; }
   button.has-badge{ position:relative; }
   .repeat-one-badge{
@@ -1357,7 +1378,7 @@
   .play-main{
     width:34px; height:34px;
     border-radius:50%;
-    background:var(--grad);
+    background:var(--grad-live);
     color:#06070C;
     box-shadow:0 0 0 rgba(57,245,196,0);
     transition:transform .12s ease, box-shadow .2s ease;
@@ -1387,7 +1408,7 @@
     border-radius:4px;
     background:
       repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0px, rgba(255,255,255,0.3) 1px, transparent 1px, transparent 3px),
-      var(--grad);
+      var(--grad-live);
     width:0%;
   }
   .seek-track:hover .seek-fill{ box-shadow:0 0 10px rgba(57,245,196,0.6); }
@@ -1420,7 +1441,7 @@
   }
   .vol-fill{
     position:absolute; left:0; top:0; bottom:0;
-    border-radius:4px; background:var(--grad); width:80%;
+    border-radius:4px; background:var(--grad-live); width:80%;
   }
   .vol-track:hover .vol-fill{ box-shadow:0 0 8px rgba(57,245,196,0.6); }
 
@@ -1499,17 +1520,15 @@
       conic-gradient(from 200deg, #1a1d30, #10131f 25%, #241a33 55%, #10131f 80%, #1a1d30);
     box-shadow:0 10px 28px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(57,245,196,0.16);
     transition:box-shadow .3s ease;
-    animation:np-spin 3s linear infinite;
-    animation-play-state:paused;
   }
-  .npo-vinyl.spinning{ animation-play-state:running; box-shadow:0 10px 28px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(57,245,196,0.3), 0 0 30px rgba(57,245,196,0.2); }
+  .npo-vinyl.spinning{ box-shadow:0 10px 28px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(57,245,196,0.3), 0 0 30px rgba(57,245,196,0.2); }
   .npo-vinyl::after{
     content:"";
     position:absolute; left:50%; top:50%;
     width:9%; height:9%;
     margin:-4.5% 0 0 -4.5%;
     border-radius:50%;
-    background:var(--grad);
+    background:var(--grad-live);
     box-shadow:0 0 0 3px var(--bg), 0 0 10px rgba(57,245,196,0.7);
   }
   /* entrance: the sleeve settles in, then the vinyl drops onto the platter after it */
@@ -1564,7 +1583,7 @@
     transition:color .15s ease, transform .1s ease;
   }
   .npo-controls button:hover{ color:var(--text); }
-  .npo-controls button.toggled{ color:var(--accent); filter:drop-shadow(0 0 6px rgba(57,245,196,0.6)); }
+  .npo-controls button.toggled{ color:var(--accent-live); filter:drop-shadow(0 0 6px rgba(57,245,196,0.6)); }
   .npo-controls svg{ width:22px; height:22px; }
   .npo-controls #npoPrevBtn svg, .npo-controls #npoNextBtn svg{ width:26px; height:26px; }
   .npo-controls .repeat-one-badge{ top:-3px; right:-8px; min-width:15px; height:15px; font-size:10px; line-height:15px; }
@@ -2559,8 +2578,24 @@
           </div>
           <p class="settings-hint local-only-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-            <span>The glow visualizer reacts to real audio, so it's also local/preview-only — it won't animate during full Spotify playback.</span>
+            <span>Reacts to real audio for local/preview tracks. Spotify streams through its own DRM pipeline that raw audio analysis can't reach, so during full Spotify playback this switches to a gentle ambient motion instead of true audio-reactivity.</span>
           </p>
+          <div class="settings-row">
+            <span>Ambient color from cover art</span>
+            <label class="eq-toggle" aria-label="Toggle ambient color">
+              <input type="checkbox" id="ambientEnableToggle" checked>
+              <span class="eq-toggle-track"><span class="eq-toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="settings-hint">Tints the background glow and now-playing ring to match whatever's on the cover — works for every source, including Spotify, since it just reads the artwork.</p>
+          <div class="settings-row">
+            <span>Click sounds</span>
+            <label class="eq-toggle" aria-label="Toggle click sounds">
+              <input type="checkbox" id="clickSoundsToggle">
+              <span class="eq-toggle-track"><span class="eq-toggle-thumb"></span></span>
+            </label>
+          </div>
+          <p class="settings-hint">A quiet synthesized tick on play/skip/like — off by default.</p>
         </section>
       </div>
     </div>
@@ -2883,11 +2918,13 @@
           npArt.style.background = art;
           npoSleeve.style.background = art;
           npoVinyl.style.background = art;
+          applyAmbientFromArt(art);
+          pulseArtSwap();
         }
         if(typeof onTrackChangedForLyrics === 'function') onTrackChangedForLyrics();
       }
       updateSeekUI(state.position, state.duration);
-      if(isPlaying){ startSpotifyTicker(); } else { stopSpotifyTicker(); }
+      if(isPlaying){ startSpotifyTicker(); ensureGlowLoop(); } else { stopSpotifyTicker(); }
       if(justEnded) handleSpotifyTrackEnded();
     });
     spotifyPlayer.connect();
@@ -5022,8 +5059,8 @@
     const y = (h - barH) / 2;
     const r = Math.min(barW / 2, 3 * vizDpr);
     const grad = npoVizCtx.createLinearGradient(0, y, 0, y + barH);
-    grad.addColorStop(0, '#39F5C4');
-    grad.addColorStop(1, '#B98CFF');
+    grad.addColorStop(0, vizColorA);
+    grad.addColorStop(1, vizColorB);
     npoVizCtx.fillStyle = grad;
     npoVizCtx.beginPath();
     npoVizCtx.moveTo(x + r, y);
@@ -5037,8 +5074,19 @@
 
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  // pulled from the live ambient palette so the bars match the current
+  // song's cover art instead of a fixed teal/violet regardless of what's
+  // playing — refreshed once per animation frame rather than per bar
+  let vizColorA = '#39F5C4', vizColorB = '#B98CFF';
+  function refreshVizColors(){
+    const cs = getComputedStyle(document.documentElement);
+    vizColorA = cs.getPropertyValue('--accent-live').trim() || '#39F5C4';
+    vizColorB = cs.getPropertyValue('--accent-2-live').trim() || '#B98CFF';
+  }
+
   function vizLoop(){
     vizRafId = requestAnimationFrame(vizLoop);
+    refreshVizColors();
     npoVizCtx.clearRect(0, 0, npoViz.width, npoViz.height);
     const t = performance.now() / 1000;
     const useReal = playbackMode === 'local' && isPlaying && analyser;
@@ -5467,6 +5515,8 @@
     npoTitle.textContent = track.name;
     npoArtist.textContent = track.artists.map(a => a.name).join(', ');
     npoDurTime.textContent = fmtTime(track.duration_ms / 1000);
+    applyAmbientFromArt(art);
+    pulseArtSwap();
     updateNpoContext();
     highlightActive();
     currentSpotifyUri = track.uri;
@@ -5487,6 +5537,7 @@
     isPlaying = true;
     updatePlayIcon(true);
     startSpotifyTicker();
+    ensureGlowLoop();
     // safety net: if we never get a player_state_changed confirming this track
     // (dropped request, transient error, etc.), stop filtering after a few
     // seconds so future state updates aren't silently ignored forever.
@@ -5515,6 +5566,7 @@
       : '<svg id="tvPlayIcon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>';
     npArt.classList.toggle('spinning', playing);
     npoVinyl.classList.toggle('spinning', playing);
+    setVinylSpinning(playing);
     syncTrackView();
   }
 
@@ -5552,6 +5604,8 @@
     npoTitle.textContent = t.title;
     npoArtist.textContent = t.artist;
     npoDurTime.textContent = fmtTime(t.dur);
+    applyAmbientFromArt(t.art);
+    pulseArtSwap();
     updateNpoContext();
     syncHeart();
     highlightActive();
@@ -5595,6 +5649,173 @@
   function playTrack(id){
     if(id == null || isNaN(id)) return;
     playTrackObj(tracks[id], id);
+  }
+
+  // ---------------- ambient palette (color pulled from the current album art) ----------------
+  // Works for every source (Spotify, iTunes previews, local demo gradients) and,
+  // unlike audio analysis, isn't blocked by Spotify's DRM playback pipeline —
+  // it's just reading the cover image, which is a plain public image either way.
+  // Feeds --accent-live/--accent-2-live (see CSS @property above), so the aurora
+  // background and the mini-player glow ring re-tint per song instead of sitting
+  // on one fixed color regardless of what's playing.
+  let ambientEnabled = typeof persisted.ambientEnabled === 'boolean' ? persisted.ambientEnabled : true;
+  const ambientColorCache = new Map(); // image url -> {avg, vib}
+  let ambientToken = 0;
+
+  function setAmbientColors(c1, c2){
+    const root = document.documentElement.style;
+    if(!ambientEnabled || !c1){ root.removeProperty('--accent-live'); root.removeProperty('--accent-2-live'); return; }
+    root.setProperty('--accent-live', c1);
+    root.setProperty('--accent-2-live', c2 || c1);
+  }
+
+  // Floors lightness/saturation so a dark or washed-out cover (b&w art, a
+  // near-black sleeve) can't produce a color too dim to read as text/icon
+  // fill on top of dark UI, or a play button too muddy to look intentional.
+  function clampVividness(r, g, b, minL, minS){
+    let rr = r/255, gg = g/255, bb = b/255;
+    const mx = Math.max(rr,gg,bb), mn = Math.min(rr,gg,bb);
+    const l = (mx+mn)/2;
+    let h = 0, s = 0;
+    const d = mx - mn;
+    if(d !== 0){
+      s = l > 0.5 ? d/(2-mx-mn) : d/(mx+mn);
+      switch(mx){
+        case rr: h = (gg-bb)/d + (gg<bb?6:0); break;
+        case gg: h = (bb-rr)/d + 2; break;
+        default: h = (rr-gg)/d + 4;
+      }
+      h /= 6;
+    }
+    const L = Math.min(0.82, Math.max(l, minL));
+    const S = Math.max(s, minS);
+    const hue2rgb = (p,q,t) => { if(t<0)t+=1; if(t>1)t-=1; if(t<1/6) return p+(q-p)*6*t; if(t<1/2) return q; if(t<2/3) return p+(q-p)*(2/3-t)*6; return p; };
+    let nr, ng, nb;
+    if(S === 0){ nr = ng = nb = L; }
+    else{
+      const q = L < 0.5 ? L*(1+S) : L+S-L*S;
+      const p = 2*L - q;
+      nr = hue2rgb(p, q, h + 1/3); ng = hue2rgb(p, q, h); nb = hue2rgb(p, q, h - 1/3);
+    }
+    return `rgb(${Math.round(nr*255)},${Math.round(ng*255)},${Math.round(nb*255)})`;
+  }
+
+  function extractColorsFromImage(url, cb){
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try{
+        const size = 24;
+        const c = document.createElement('canvas');
+        c.width = size; c.height = size;
+        const ctx = c.getContext('2d', { willReadFrequently: true });
+        ctx.drawImage(img, 0, 0, size, size);
+        const data = ctx.getImageData(0, 0, size, size).data;
+        let r = 0, g = 0, b = 0, n = 0;
+        let vibR = 0, vibG = 0, vibB = 0, vibSat = -1;
+        for(let i = 0; i < data.length; i += 4){
+          const rr = data[i], gg = data[i+1], bb = data[i+2], aa = data[i+3];
+          if(aa < 128) continue;
+          r += rr; g += gg; b += bb; n++;
+          const mx = Math.max(rr, gg, bb), mn = Math.min(rr, gg, bb);
+          const sat = mx === 0 ? 0 : (mx - mn) / mx;
+          // prefer a punchy, reasonably bright swatch over a dim/near-black one
+          if(sat > vibSat && mx > 60){ vibSat = sat; vibR = rr; vibG = gg; vibB = bb; }
+        }
+        if(!n) throw new Error('image had no opaque pixels');
+        r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+        // "vivid" (accent-live): used solo — play button, heart, toggled icons,
+        // vinyl label dot — so it's floored hard toward bright + saturated.
+        // "base" (accent-2-live): only ever blended into gradients/aurora
+        // alongside vivid, so it can stay closer to the art's real tone.
+        const vivid = clampVividness(vibSat >= 0 ? vibR : r, vibSat >= 0 ? vibG : g, vibSat >= 0 ? vibB : b, 0.46, 0.42);
+        const base = clampVividness(r, g, b, 0.18, 0.14);
+        cb(vivid, base);
+      } catch(err){
+        // most likely the image host doesn't send CORS headers, so the canvas
+        // is "tainted" and pixel data can't be read — fail quietly and just
+        // keep whatever ambient color was already showing
+        console.warn('Ambient color extraction skipped (image not CORS-readable):', err && err.message || err);
+        cb(null, null);
+      }
+    };
+    img.onerror = () => cb(null, null);
+    img.src = url;
+  }
+
+  // cssBg is whatever string the app already uses for art (either
+  // "url('...') center/cover no-repeat" for real cover art, or one of the
+  // local demo "linear-gradient(...)" placeholders) — same value passed to
+  // npArt.style.background elsewhere, so this just piggybacks on it.
+  function applyAmbientFromArt(cssBg){
+    if(!ambientEnabled || !cssBg) return;
+    const myToken = ++ambientToken;
+    const urlMatch = cssBg.match(/url\((['"]?)(.*?)\1\)/);
+    if(urlMatch){
+      const imgUrl = urlMatch[2];
+      const cached = ambientColorCache.get(imgUrl);
+      if(cached){ setAmbientColors(cached.vivid, cached.base); return; }
+      extractColorsFromImage(imgUrl, (vivid, base) => {
+        if(myToken !== ambientToken || !vivid) return; // superseded by a newer track, or extraction failed
+        ambientColorCache.set(imgUrl, { vivid, base });
+        setAmbientColors(vivid, base);
+      });
+      return;
+    }
+    // local demo gradient — just lift its two hex stops directly, no canvas needed
+    const hexes = cssBg.match(/#[0-9a-fA-F]{3,8}/g);
+    if(hexes && hexes.length) setAmbientColors(hexes[0], hexes[hexes.length - 1]);
+  }
+
+  // brief flash so a track change reads as an *event* rather than the art
+  // silently snapping to something new
+  function pulseArtSwap(){
+    [npArt, npoSleeve, npoVinyl].forEach(el => {
+      if(!el) return;
+      el.classList.remove('art-swap');
+      void el.offsetWidth; // force reflow so the animation restarts
+      el.classList.add('art-swap');
+    });
+  }
+
+  // ---------------- vinyl physics (spin-up / coast-down, not an instant on/off) ----------------
+  // A real platter has inertia — it takes a beat to get up to speed, and it
+  // doesn't stop dead the instant you lift the needle, it coasts down. This
+  // replaces the old fixed 3s CSS spin (which just paused/resumed instantly)
+  // with an actual small physics sim so hitting play/pause feels tactile.
+  let vinylAngle = 0;
+  let vinylVelocity = 0;      // deg/sec, current
+  let vinylTargetVelocity = 0; // deg/sec, what it's easing toward
+  let vinylLastTs = null;
+  let vinylRafId = null;
+  const VINYL_TOP_SPEED = 120;   // deg/sec == one full rotation per 3s, matching the old animation's pace
+  const VINYL_SPINUP_TAU = 0.5;    // seconds-ish to reach speed — quick, like a direct-drive motor
+  const VINYL_SPINDOWN_TAU = 0.9;  // slower to coast to a stop than to spin up, like real momentum
+
+  function vinylPhysicsTick(ts){
+    if(vinylLastTs === null) vinylLastTs = ts;
+    const dt = Math.min(0.1, (ts - vinylLastTs) / 1000);
+    vinylLastTs = ts;
+    const tau = vinylTargetVelocity > vinylVelocity ? VINYL_SPINUP_TAU : VINYL_SPINDOWN_TAU;
+    vinylVelocity += (vinylTargetVelocity - vinylVelocity) * Math.min(1, dt / tau);
+    vinylAngle = (vinylAngle + vinylVelocity * dt) % 360;
+    const t = `rotate(${vinylAngle.toFixed(2)}deg)`;
+    if(npArt) npArt.style.transform = t;
+    if(npoVinyl) npoVinyl.style.transform = t;
+    if(Math.abs(vinylVelocity) > 0.05 || vinylTargetVelocity !== 0){
+      vinylRafId = requestAnimationFrame(vinylPhysicsTick);
+    } else {
+      vinylVelocity = 0;
+      vinylRafId = null;
+      vinylLastTs = null;
+    }
+  }
+
+  function setVinylSpinning(playing){
+    if(prefersReducedMotion) return; // no rotation at all, matching how the rest of the app handles reduced motion
+    vinylTargetVelocity = playing ? VINYL_TOP_SPEED : 0;
+    vinylLastTs = null; // resync so a long gap since the last tick doesn't register as one huge dt
+    if(vinylRafId === null) vinylRafId = requestAnimationFrame(vinylPhysicsTick);
   }
 
   // ---------------- real audio-reactive glow (Web Audio API) ----------------
@@ -5671,7 +5892,7 @@
     }
   }
 
-  function glowLoop(){
+  function glowLoop(ts){
     if(playbackMode === 'local' && isPlaying && analyser){
       if(audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
       analyser.getByteFrequencyData(freqData);
@@ -5682,10 +5903,26 @@
       npGlow.style.opacity = Math.min(0.85, 0.12 + avg * 0.9).toFixed(2);
       npGlow.style.transform = `scale(${(1 + avg*0.4).toFixed(3)})`;
       glowRafId = requestAnimationFrame(glowLoop);
+    } else if(playbackMode === 'spotify' && isPlaying){
+      // Spotify's SDK plays through its own DRM pipeline, so there's no raw
+      // audio here for the Web Audio API to analyse — this is an honest
+      // ambient "breathing" pulse driven by elapsed time, not real audio
+      // reactivity. It's what keeps the ring from just sitting dead/static
+      // while a track plays; the color itself still comes from the real
+      // album art via applyAmbientFromArt.
+      const t = (ts || performance.now()) / 1000;
+      const wave = (Math.sin(t * 1.1) + 1) / 2;
+      npGlow.style.opacity = (0.22 + wave * 0.30).toFixed(2);
+      npGlow.style.transform = `scale(${(1 + wave * 0.16).toFixed(3)})`;
+      glowRafId = requestAnimationFrame(glowLoop);
     } else {
       npGlow.style.opacity = 0;
       glowRafId = null;
     }
+  }
+
+  function ensureGlowLoop(){
+    if(glowRafId === null) glowRafId = requestAnimationFrame(glowLoop);
   }
 
   function setPlaying(playing){
@@ -5693,6 +5930,7 @@
     if(playbackMode === 'spotify'){
       playing ? spotifyResume() : spotifyPause();
       playing ? startSpotifyTicker() : stopSpotifyTicker();
+      if(playing) ensureGlowLoop();
     } else {
       if(playing){
         // NOTE: we intentionally do NOT call ensureAudioGraph() here anymore.
@@ -5827,6 +6065,66 @@
     }
     savePersistedState({ vizEnabled });
   });
+
+  const ambientEnableToggle = document.getElementById('ambientEnableToggle');
+  ambientEnableToggle.checked = ambientEnabled;
+  ambientEnableToggle.addEventListener('change', () => {
+    ambientEnabled = ambientEnableToggle.checked;
+    if(!ambientEnabled){
+      setAmbientColors(null, null);
+    } else {
+      // re-apply from whatever's currently showing, using the same value
+      // already assigned to the mini-player art
+      applyAmbientFromArt(npArt.style.background);
+    }
+    savePersistedState({ ambientEnabled });
+  });
+
+  // ---------------- optional UI click sounds ----------------
+  // A quiet synthesized tick (no audio file needed) on the main transport
+  // actions. Off by default — this is a taste thing, not something to spring
+  // on someone who didn't ask for it.
+  let clickSoundsEnabled = typeof persisted.clickSoundsEnabled === 'boolean' ? persisted.clickSoundsEnabled : false;
+  let uiAudioCtx = null;
+  function ensureUiAudioCtx(){
+    if(!uiAudioCtx){
+      try{ uiAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+      catch(err){ console.warn('UI click sounds unavailable:', err); }
+    }
+    return uiAudioCtx;
+  }
+  function playUiClick(freq){
+    if(!clickSoundsEnabled) return;
+    const ctx = ensureUiAudioCtx();
+    if(!ctx) return;
+    if(ctx.state === 'suspended') ctx.resume().catch(() => {});
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.05, now + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+  const clickSoundsToggle = document.getElementById('clickSoundsToggle');
+  clickSoundsToggle.checked = clickSoundsEnabled;
+  clickSoundsToggle.addEventListener('change', () => {
+    clickSoundsEnabled = clickSoundsToggle.checked;
+    if(clickSoundsEnabled) playUiClick(880); // little confirmation blip so turning it on is self-explanatory
+    savePersistedState({ clickSoundsEnabled });
+  });
+  // distinct-ish pitches per action so it doesn't feel like one flat "click"
+  playBtn.addEventListener('click', () => playUiClick(isPlaying ? 620 : 880));
+  document.getElementById('nextBtn').addEventListener('click', () => playUiClick(760));
+  document.getElementById('prevBtn').addEventListener('click', () => playUiClick(680));
+  document.getElementById('shuffleBtn').addEventListener('click', () => playUiClick(700));
+  document.getElementById('repeatBtn').addEventListener('click', () => playUiClick(700));
+  npHeart.addEventListener('click', () => playUiClick(980));
+  npoHeart.addEventListener('click', () => playUiClick(980));
 
   // reflect whatever EQ settings were loaded from storage
   setActivePreset(savedActivePreset);
