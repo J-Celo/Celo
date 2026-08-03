@@ -280,6 +280,15 @@
     display:flex; align-items:center; justify-content:center;
   }
 
+  .sidebar-backdrop{
+    display:none;
+    position:fixed; inset:0;
+    z-index:55;
+    background:rgba(4,5,9,0.6);
+    backdrop-filter:blur(2px);
+    opacity:0; pointer-events:none;
+    transition:opacity .2s ease;
+  }
   @media (max-width:860px){
     .sidebar{
       position:fixed;
@@ -292,6 +301,8 @@
     .sidebar.open{ transform:translateX(0); }
     .app{ grid-template-columns:1fr; }
     .sidebar{ grid-column:1; }
+    .sidebar-backdrop{ display:block; }
+    .sidebar-backdrop.open{ opacity:1; pointer-events:auto; }
   }
 
   /* ================= MAIN ================= */
@@ -377,6 +388,19 @@
     cursor:pointer;
   }
   @media (max-width:860px){ .hamburger{ display:flex; } }
+
+  /* iOS Safari zooms the whole page in when a focused input's font-size is
+     under 16px — every text input in the app gets bumped to 16px here on
+     touch/narrow viewports so focusing search, create-playlist, or the
+     inline new-playlist field doesn't yank the layout around. */
+  @media (max-width:860px), (pointer:coarse){
+    .search-wrap input,
+    .cp-field input[type="text"],
+    .cp-link-row input[type="text"],
+    .atp-menu-new-form input{
+      font-size:16px;
+    }
+  }
   .pill-nav{ display:flex; gap:8px; }
   .pill-nav button{
     width:32px; height:32px;
@@ -853,10 +877,11 @@
     .drag-handle{ opacity:0.55; } /* no hover on touch, so keep it visible */
     .idx-label{ display:none; }
   }
-  .lib-table .title-cell{ display:flex; align-items:center; gap:12px; }
+  .lib-table .title-cell{ display:flex; align-items:center; gap:12px; min-width:0; }
   .lib-table .title-cell .thumb{ width:40px; height:40px; border-radius:28%; flex-shrink:0; }
-  .lib-table .title-cell strong{ display:flex; align-items:center; gap:7px; font-weight:600; font-size:14px; }
-  .lib-table .title-cell small{ color:var(--text-faint); font-size:12.5px; display:block; }
+  .lib-table .title-cell > div:last-child{ min-width:0; }
+  .lib-table .title-cell strong{ display:flex; align-items:center; gap:7px; font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lib-table .title-cell small{ color:var(--text-faint); font-size:12.5px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .lib-table .dur{ color:var(--text-faint); text-align:right; width:60px; font-family:'JetBrains Mono', monospace; font-size:12.5px; }
   .lib-table .heart-cell{ width:36px; }
   .lib-table .menu-cell{ width:32px; }
@@ -2126,6 +2151,8 @@
 
 <div class="app">
 
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
   <!-- ================= SIDEBAR ================= -->
   <aside class="sidebar" id="sidebar">
     <div class="brand"><span class="mark" aria-hidden="true"></span><span class="display">CELO</span></div>
@@ -3269,7 +3296,7 @@
   function openLocalPlaylist(id){
     const p = localPlaylists.find(pl => pl.id === id);
     if(!p) return;
-    sidebar.classList.remove('open');
+    closeSidebar();
     clearSearchInput();
     contentEl.classList.remove('is-searching');
     if(!p.tracks.length){
@@ -3294,7 +3321,7 @@
   }
 
   async function openSpotifyPlaylist(id, name){
-    sidebar.classList.remove('open'); // close the mobile sidebar once a playlist is picked
+    closeSidebar(); // close the mobile sidebar once a playlist is picked
     clearSearchInput();
     contentEl.classList.remove('is-searching');
     renderResultsState(`<div class="sr-state is-loading">Loading ${escapeHtml(name)}</div>` + skeletonRows(5));
@@ -3592,11 +3619,13 @@
     cpOverlay.classList.add('open');
     cpOverlay.setAttribute('aria-hidden', 'false');
     cpFocusTrap.open(cpNameInput);
+    lockBodyScroll();
   }
   function closeCreatePlaylistModal(){
     cpOverlay.classList.remove('open');
     cpOverlay.setAttribute('aria-hidden', 'true');
     cpFocusTrap.close();
+    unlockBodyScroll();
   }
   createPlaylistBtn.addEventListener('click', openCreatePlaylistModal);
   cpCancelBtn.addEventListener('click', closeCreatePlaylistModal);
@@ -4981,7 +5010,7 @@
     void npOverlay.offsetWidth; // restart the entrance animation on every open, not just the first
     npOverlay.classList.add('entering');
     npOverlay.setAttribute('aria-hidden', 'false');
-    document.body.style.overflow = 'hidden';
+    lockBodyScroll();
     clearTimeout(npoEnterTimer);
     npoEnterTimer = setTimeout(() => npOverlay.classList.remove('entering'), 650);
     startViz();
@@ -4989,7 +5018,7 @@
   function closeNowPlaying(){
     npOverlay.classList.remove('open');
     npOverlay.setAttribute('aria-hidden', 'true');
-    document.body.style.overflow = '';
+    unlockBodyScroll();
     stopViz();
   }
   npTitle.addEventListener('click', openNowPlaying);
@@ -5727,6 +5756,38 @@
   setActivePreset(savedActivePreset);
   refreshEqUI();
 
+  // ---------------- body scroll lock (mobile-safe) ----------------
+  // `overflow:hidden` on <body> alone doesn't reliably block background touch-
+  // scroll on iOS Safari while a modal/overlay is open — the page can still
+  // drag-scroll underneath. Pinning body to fixed position (and restoring the
+  // exact scroll offset on unlock) is the standard workaround; used by every
+  // overlay in the app via a simple open-count so nested/overlapping opens
+  // (e.g. queue drawer opened from within Now Playing) don't unlock too early.
+  let scrollLockCount = 0;
+  let scrollLockY = 0;
+  function lockBodyScroll(){
+    if(scrollLockCount === 0){
+      scrollLockY = window.scrollY;
+      document.body.style.position = 'fixed';
+      document.body.style.top = -scrollLockY + 'px';
+      document.body.style.left = '0';
+      document.body.style.right = '0';
+      document.body.style.width = '100%';
+    }
+    scrollLockCount++;
+  }
+  function unlockBodyScroll(){
+    scrollLockCount = Math.max(0, scrollLockCount - 1);
+    if(scrollLockCount === 0){
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.width = '';
+      window.scrollTo(0, scrollLockY);
+    }
+  }
+
   // ---------------- modal focus trap (keyboard/screen-reader accessibility) ----------------
   // Used by every settings-overlay-style modal (Settings, Recently Played, Shortcuts,
   // Create Playlist): keeps Tab cycling within the open modal instead of leaking
@@ -5766,11 +5827,13 @@
     settingsOverlay.classList.add('open');
     settingsOverlay.setAttribute('aria-hidden', 'false');
     settingsFocusTrap.open();
+    lockBodyScroll();
   }
   function closeSettings(){
     settingsOverlay.classList.remove('open');
     settingsOverlay.setAttribute('aria-hidden', 'true');
     settingsFocusTrap.close();
+    unlockBodyScroll();
   }
   const settingsFocusTrap = setupModalFocusTrap(settingsOverlay);
   settingsBtn.addEventListener('click', openSettings);
@@ -5815,11 +5878,13 @@
     recentOverlay.classList.add('open');
     recentOverlay.setAttribute('aria-hidden', 'false');
     recentFocusTrap.open(recentCloseBtn);
+    lockBodyScroll();
   }
   function closeRecentModal(){
     recentOverlay.classList.remove('open');
     recentOverlay.setAttribute('aria-hidden', 'true');
     recentFocusTrap.close();
+    unlockBodyScroll();
   }
   recentShowAllBtn.addEventListener('click', (e) => { e.preventDefault(); openRecentModal(); });
   recentCloseBtn.addEventListener('click', closeRecentModal);
@@ -5849,11 +5914,13 @@
     shortcutsOverlay.classList.add('open');
     shortcutsOverlay.setAttribute('aria-hidden', 'false');
     shortcutsFocusTrap.open();
+    lockBodyScroll();
   }
   function closeShortcuts(){
     shortcutsOverlay.classList.remove('open');
     shortcutsOverlay.setAttribute('aria-hidden', 'true');
     shortcutsFocusTrap.close();
+    unlockBodyScroll();
   }
   shortcutsBtn.addEventListener('click', openShortcuts);
   shortcutsCloseBtn.addEventListener('click', closeShortcuts);
@@ -5969,11 +6036,13 @@
     queueDrawer.classList.add('open');
     queueBackdrop.classList.add('open');
     queueDrawer.setAttribute('aria-hidden', 'false');
+    lockBodyScroll();
   }
   function closeQueueDrawer(){
     queueDrawer.classList.remove('open');
     queueBackdrop.classList.remove('open');
     queueDrawer.setAttribute('aria-hidden', 'true');
+    unlockBodyScroll();
   }
   queueBtn.addEventListener('click', () => {
     queueDrawer.classList.contains('open') ? closeQueueDrawer() : openQueueDrawer();
@@ -6242,13 +6311,28 @@
       if(target) target.scrollIntoView({ behavior:'smooth', block:'start' });
       if(item.dataset.target === 'librarySection') ensureSpotifyLibraryLoaded();
       if(item.dataset.target === 'searchSection'){ searchInput.focus(); }
-      sidebar.classList.remove('open');
+      closeSidebar();
     });
   });
 
   const sidebar = document.getElementById('sidebar');
+  const sidebarBackdrop = document.getElementById('sidebarBackdrop');
   const hamburger = document.getElementById('hamburger');
-  hamburger.addEventListener('click', () => sidebar.classList.toggle('open'));
+  function openSidebar(){
+    sidebar.classList.add('open');
+    sidebarBackdrop.classList.add('open');
+  }
+  function closeSidebar(){
+    sidebar.classList.remove('open');
+    sidebarBackdrop.classList.remove('open');
+  }
+  hamburger.addEventListener('click', () => {
+    sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+  });
+  sidebarBackdrop.addEventListener('click', closeSidebar);
+  document.addEventListener('keydown', (e) => {
+    if(e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
+  });
 
   // topbar scroll shadow
   const mainEl = document.getElementById('main');
