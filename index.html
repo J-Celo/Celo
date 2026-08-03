@@ -2386,7 +2386,7 @@
       </div>
       <div class="seek-row">
         <span class="time mono" id="curTime">0:00</span>
-        <div class="seek-track" id="seekTrack">
+        <div class="seek-track" id="seekTrack" role="slider" tabindex="0" aria-label="Seek playback position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
           <div class="seek-fill" id="seekFill"></div>
           <div class="seek-handle" id="seekHandle"></div>
         </div>
@@ -2398,7 +2398,7 @@
       <button id="queueBtn" aria-label="Show up next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></button>
       <button id="muteBtn" aria-label="Mute"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></button>
       <div class="vol-row">
-        <div class="vol-track" id="volTrack"><div class="vol-fill" id="volFill"></div></div>
+        <div class="vol-track" id="volTrack" role="slider" tabindex="0" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80"><div class="vol-fill" id="volFill"></div></div>
       </div>
     </div>
   </footer>
@@ -2452,7 +2452,7 @@
     <canvas class="npo-viz" id="npoViz" aria-hidden="true"></canvas>
 
     <div class="npo-seek-row">
-      <div class="seek-track" id="npoSeekTrack">
+      <div class="seek-track" id="npoSeekTrack" role="slider" tabindex="0" aria-label="Seek playback position" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <div class="seek-fill" id="npoSeekFill"></div>
         <div class="seek-handle" id="npoSeekHandle"></div>
       </div>
@@ -5527,6 +5527,10 @@
     curTimeEl.textContent = fmtTime((posMs||0) / 1000);
     npoCurTime.textContent = fmtTime((posMs||0) / 1000);
     if(durMs){ durTimeEl.textContent = fmtTime(durMs / 1000); npoDurTime.textContent = fmtTime(durMs / 1000); }
+    if(!seeking){
+      seekTrack.setAttribute('aria-valuenow', Math.round(pct*100));
+      npoSeekTrack.setAttribute('aria-valuenow', Math.round(pct*100));
+    }
     if(!tonearmDragging){
       const angle = TONEARM_MIN + (TONEARM_MAX - TONEARM_MIN) * pct;
       npTonearm.style.transform = `rotate(${angle}deg)`;
@@ -6249,6 +6253,8 @@
     pct = Math.min(1, Math.max(0, pct));
     seekFill.style.width = (pct*100) + '%';
     seekHandle.style.left = (pct*100) + '%';
+    seekTrack.setAttribute('aria-valuenow', Math.round(pct*100));
+    npoSeekTrack.setAttribute('aria-valuenow', Math.round(pct*100));
     if(!tonearmDragging){
       const angle = TONEARM_MIN + (TONEARM_MAX - TONEARM_MIN) * pct;
       npTonearm.style.transform = `rotate(${angle}deg)`;
@@ -6274,10 +6280,40 @@
   }
   let seeking = false;
   let seekingEl = seekTrack;
-  seekTrack.addEventListener('mousedown', (e) => { seeking = true; seekingEl = seekTrack; seekTo(e.clientX, seekTrack); });
-  npoSeekTrack.addEventListener('mousedown', (e) => { seeking = true; seekingEl = npoSeekTrack; seekTo(e.clientX, npoSeekTrack); });
-  window.addEventListener('mousemove', (e) => { if(seeking) seekTo(e.clientX, seekingEl); });
-  window.addEventListener('mouseup', () => { seeking = false; });
+  function startSeekDrag(e, trackEl){
+    seeking = true;
+    seekingEl = trackEl;
+    trackEl.setPointerCapture(e.pointerId);
+    seekTo(e.clientX, trackEl);
+  }
+  function endSeekDrag(){ seeking = false; }
+  // pointer events (not mousedown) so this works uniformly for mouse, touch,
+  // and pen — pointer capture keeps the drag tracking even if the finger/cursor
+  // moves off the narrow track, same approach as the tonearm control below
+  seekTrack.addEventListener('pointerdown', (e) => startSeekDrag(e, seekTrack));
+  npoSeekTrack.addEventListener('pointerdown', (e) => startSeekDrag(e, npoSeekTrack));
+  seekTrack.addEventListener('pointermove', (e) => { if(seeking && seekingEl === seekTrack) seekTo(e.clientX, seekTrack); });
+  npoSeekTrack.addEventListener('pointermove', (e) => { if(seeking && seekingEl === npoSeekTrack) seekTo(e.clientX, npoSeekTrack); });
+  seekTrack.addEventListener('pointerup', endSeekDrag);
+  seekTrack.addEventListener('pointercancel', endSeekDrag);
+  npoSeekTrack.addEventListener('pointerup', endSeekDrag);
+  npoSeekTrack.addEventListener('pointercancel', endSeekDrag);
+
+  // direct keyboard control when the seek bar itself has focus — same ±5s /
+  // shift-to-skip behavior as the global shortcuts below, so it feels identical
+  // whether triggered globally or by tabbing straight to the control
+  function seekTrackKeydown(e){
+    if(e.key === 'ArrowRight'){
+      e.preventDefault();
+      if(e.shiftKey){ stepTrack(1); } else { seekToPct((currentTrackPositionMs() + 5000) / (currentTrackDurationMs() || 1), true); }
+    }
+    if(e.key === 'ArrowLeft'){
+      e.preventDefault();
+      if(e.shiftKey){ handlePrevClick(); } else { seekToPct((currentTrackPositionMs() - 5000) / (currentTrackDurationMs() || 1), true); }
+    }
+  }
+  seekTrack.addEventListener('keydown', seekTrackKeydown);
+  npoSeekTrack.addEventListener('keydown', seekTrackKeydown);
 
   // ---------------- tonearm drag-to-seek ----------------
   function angleFromPointer(clientX, clientY){
@@ -6341,6 +6377,7 @@
     audioEl.volume = v;
     if(spotifyPlayer){ spotifyPlayer.setVolume(v).catch(() => {}); }
     volFill.style.width = (v*100) + '%';
+    volTrack.setAttribute('aria-valuenow', Math.round(v*100));
   }
   setVolume(lastVolume);
 
@@ -6350,14 +6387,37 @@
     const pct = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
     setVolume(pct);
   }
-  volTrack.addEventListener('mousedown', (e) => { dragVol = true; volFromEvent(e.clientX); });
-  window.addEventListener('mousemove', (e) => { if(dragVol) volFromEvent(e.clientX); });
-  window.addEventListener('mouseup', () => {
+  // pointer events + capture, same reasoning as the seek bars above — reliable
+  // on touch, and the drag keeps tracking even if the pointer leaves the track
+  volTrack.addEventListener('pointerdown', (e) => {
+    dragVol = true;
+    volTrack.setPointerCapture(e.pointerId);
+    volFromEvent(e.clientX);
+  });
+  volTrack.addEventListener('pointermove', (e) => { if(dragVol) volFromEvent(e.clientX); });
+  function endVolDrag(){
     if(dragVol) savePersistedState({ volume: audioEl.volume });
     dragVol = false;
+  }
+  volTrack.addEventListener('pointerup', endVolDrag);
+  volTrack.addEventListener('pointercancel', endVolDrag);
+
+  // direct keyboard control when the volume slider itself has focus — same
+  // ±5% step as the global ArrowUp/Down shortcut, so it behaves identically
+  volTrack.addEventListener('keydown', (e) => {
+    if(e.key === 'ArrowUp' || e.key === 'ArrowRight'){
+      e.preventDefault();
+      setVolume(Math.min(1, audioEl.volume + 0.05));
+      savePersistedState({ volume: audioEl.volume });
+    }
+    if(e.key === 'ArrowDown' || e.key === 'ArrowLeft'){
+      e.preventDefault();
+      setVolume(Math.max(0, audioEl.volume - 0.05));
+      savePersistedState({ volume: audioEl.volume });
+    }
   });
 
-  // also handle volume changes via ArrowUp/ArrowDown keyboard shortcuts
+  // also handle volume changes via the global ArrowUp/ArrowDown keyboard shortcuts
   window.addEventListener('keyup', (e) => {
     if(e.code === 'ArrowUp' || e.code === 'ArrowDown') savePersistedState({ volume: audioEl.volume });
   });
@@ -6433,22 +6493,24 @@
         playBtn.click();
         break;
       case 'ArrowRight':
-        if(document.activeElement === npTonearm) return; // tonearm has its own handler
+        if([npTonearm, seekTrack, npoSeekTrack, volTrack].includes(document.activeElement)) return; // these have their own handlers
         e.preventDefault();
         if(e.shiftKey){ stepTrack(1); }
         else { seekToPct((currentTrackPositionMs() + 5000) / (currentTrackDurationMs() || 1), true); }
         break;
       case 'ArrowLeft':
-        if(document.activeElement === npTonearm) return;
+        if([npTonearm, seekTrack, npoSeekTrack, volTrack].includes(document.activeElement)) return;
         e.preventDefault();
         if(e.shiftKey){ handlePrevClick(); }
         else { seekToPct((currentTrackPositionMs() - 5000) / (currentTrackDurationMs() || 1), true); }
         break;
       case 'ArrowUp':
+        if(document.activeElement === volTrack) return; // volTrack has its own handler
         e.preventDefault();
         setVolume(Math.min(1, audioEl.volume + 0.05));
         break;
       case 'ArrowDown':
+        if(document.activeElement === volTrack) return;
         e.preventDefault();
         setVolume(Math.max(0, audioEl.volume - 0.05));
         break;
