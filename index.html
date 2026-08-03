@@ -473,6 +473,7 @@
   .search-results .sr-meta small{ color:var(--text-faint); font-size:12px; }
   .search-results .sr-dur{ font-size:11.5px; color:var(--text-faint); flex-shrink:0; }
   .search-results .sr-state{ padding:16px; font-size:13px; color:var(--text-faint); text-align:center; }
+  .search-results .sr-empty-chips{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; padding:0 16px 16px; }
   .search-results .sr-section-label{
     padding:12px 14px 4px;
     font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
@@ -667,6 +668,7 @@
   .shelf-head h2{ font-size:22px; margin:0; font-weight:700; letter-spacing:-0.02em; }
   .shelf-head a{ font-size:13px; font-weight:700; color:var(--text-dim); }
   .shelf-head a:hover{ color:var(--text); text-decoration:underline; }
+  .shelf-subnote{ font-size:12px; color:var(--text-faint); }
 
   .card-row{
     display:grid;
@@ -1344,6 +1346,7 @@
     opacity:0; pointer-events:none;
     transform:translateY(14px);
     transition:opacity .28s ease, transform .28s ease;
+    overflow-y:auto;
   }
   .np-overlay.open{ opacity:1; pointer-events:auto; transform:translateY(0); }
   .np-overlay.dragging{ transition:none; }
@@ -1379,7 +1382,7 @@
 
   .npo-art-stage{
     position:relative;
-    width:min(74vw, 340px); aspect-ratio:1;
+    width:min(74vw, 340px, 42vh); aspect-ratio:1;
     margin:auto auto 10px;
     flex-shrink:1;
   }
@@ -2186,6 +2189,19 @@
           <div class="empty-chips" id="emptyChips"></div>
         </div>
       </section>
+
+      <section class="shelf" id="savedPreviewsSection" style="display:none;">
+        <div class="shelf-head">
+          <h2 class="display">Saved previews</h2>
+          <span class="shelf-subnote">Not on Spotify — 30-second previews, saved on this device</span>
+        </div>
+        <table class="lib-table">
+          <thead>
+            <tr><th class="idx">Side</th><th>Title</th><th></th><th class="dur">Time</th><th></th></tr>
+          </thead>
+          <tbody id="savedPreviewsBody"></tbody>
+        </table>
+      </section>
     </div>
 
     <!-- ================= TRACK VIEW — opened from the mini-player artwork ================= -->
@@ -2673,6 +2689,16 @@
         return;
       }
       if(t && t.uri === spotifyExpectedUri) spotifyExpectedUri = null; // confirmed switch — stop filtering
+
+      // Natural end-of-track detection: we always play a single URI rather than
+      // handing Spotify a context/queue, so the SDK has nothing to auto-advance
+      // to — it just parks on paused/position 0 when a track finishes. Catch
+      // that here (guarded by "was actually playing and near the end a moment
+      // ago", so a manual pause-after-seeking-to-0 doesn't false-trigger it)
+      // and drive the same next-track logic the Next button uses.
+      const wasNearEnd = isPlaying && spotifyDurationMs > 0 && spotifyPositionMs >= spotifyDurationMs - 1500;
+      const justEnded = wasNearEnd && state.paused && state.position === 0 && t && t.uri === currentSpotifyUri;
+
       isPlaying = !state.paused;
       spotifyDurationMs = state.duration;
       spotifyPositionMs = state.position;
@@ -2693,28 +2719,48 @@
       }
       updateSeekUI(state.position, state.duration);
       if(isPlaying){ startSpotifyTicker(); } else { stopSpotifyTicker(); }
+      if(justEnded) handleSpotifyTrackEnded();
     });
     spotifyPlayer.connect();
   };
+
+  function handleSpotifyTrackEnded(){
+    if(repeatMode === 'one'){
+      playSpotifyTrack(spotifyQueue[spotifyQueueIndex], spotifyQueueIndex);
+      return;
+    }
+    const atEnd = spotifyQueueIndex === spotifyQueue.length - 1;
+    if(repeatMode === 'off' && atEnd){
+      // reached the end of the queue with repeat off — stop instead of looping back to the first track
+      setPlaying(false);
+      return;
+    }
+    stepTrack(1);
+  }
 
   async function spotifyApi(path, opts = {}, retriesLeft = 2){
     const res = await fetch('https://api.spotify.com/v1' + path, {
       ...opts,
       headers: { 'Authorization': 'Bearer ' + spotifyAccessToken, 'Content-Type': 'application/json', ...(opts.headers||{}) },
     });
-    if(res.status === 429 && retriesLeft > 0){
-      // Spotify now distinguishes two different 429s: a short rolling-window
-      // rate limit (worth a quick retry) vs a longer-lived quota exhaustion
-      // ("reason": "QUOTA_EXCEEDED", common for Development Mode apps) that
-      // won't clear in seconds — retrying that immediately just burns more
-      // of the same quota, so don't.
-      let reason = null;
-      try{ reason = (await res.clone().json())?.error?.reason || null; } catch(err){}
-      if(reason === 'QUOTA_EXCEEDED') return res;
-      const retryAfterHeader = res.headers.get('Retry-After');
-      const waitMs = Math.min((retryAfterHeader ? parseInt(retryAfterHeader, 10) : (3 - retriesLeft)) * 1000, 8000);
-      await new Promise(r => setTimeout(r, waitMs));
-      return spotifyApi(path, opts, retriesLeft - 1);
+    if(res.status === 429){
+      if(retriesLeft > 0){
+        // Spotify now distinguishes two different 429s: a short rolling-window
+        // rate limit (worth a quick retry) vs a longer-lived quota exhaustion
+        // ("reason": "QUOTA_EXCEEDED", common for Development Mode apps) that
+        // won't clear in seconds — retrying that immediately just burns more
+        // of the same quota, so don't.
+        let reason = null;
+        try{ reason = (await res.clone().json())?.error?.reason || null; } catch(err){}
+        if(reason === 'QUOTA_EXCEEDED'){ notifySpotifyRateLimited(true); return res; }
+        const retryAfterHeader = res.headers.get('Retry-After');
+        const waitMs = Math.min((retryAfterHeader ? parseInt(retryAfterHeader, 10) : (3 - retriesLeft)) * 1000, 8000);
+        await new Promise(r => setTimeout(r, waitMs));
+        return spotifyApi(path, opts, retriesLeft - 1);
+      }
+      // retried and it's still rate-limited — surface it rather than letting
+      // whatever called this quietly fail with no feedback
+      notifySpotifyRateLimited(false);
     }
     return res;
   }
@@ -2860,6 +2906,13 @@
     return spotifyApi(`/me/tracks?ids=${trackId}`, { method: 'DELETE' });
   }
 
+  async function spotifyIsTrackSaved(trackId){
+    const res = await spotifyApi(`/me/tracks/contains?ids=${trackId}`);
+    if(!res.ok) throw new Error('failed to check saved state: ' + res.status);
+    const data = await res.json();
+    return !!data[0];
+  }
+
   async function spotifyGetTopTracks(limit = 6){
     // "your most-played tracks recently" — drives the Home page's "Picked for
     // your crate" shelf once connected. Needs the user-top-read scope.
@@ -2957,7 +3010,7 @@
   let shuffleOn = false;
   let playbackMode = 'local'; // 'local' (audio element) or 'spotify' (Web Playback SDK, full tracks)
   const liked = new Set();          // local demo tracks, keyed by numeric id
-  const likedSpotifyUris = new Set(); // Spotify tracks, keyed by track uri (currentIndex is always null for these)
+  let likedPreviews = [];           // preview-only (iTunes fallback) tracks — no Spotify id to save against, so we keep the full object
 
   // ---------------- persistence (localStorage) ----------------
   // Saves the stuff a returning listener would expect to survive a refresh:
@@ -2989,8 +3042,8 @@
   if(Array.isArray(persisted.liked)){
     persisted.liked.forEach(id => { if(tracks.some(t => t.id === id)) liked.add(id); });
   }
-  if(Array.isArray(persisted.likedSpotifyUris)){
-    persisted.likedSpotifyUris.forEach(uri => likedSpotifyUris.add(uri));
+  if(Array.isArray(persisted.likedPreviews)){
+    likedPreviews = persisted.likedPreviews.filter(p => p && p.trackId && p.previewUrl);
   }
   if(Array.isArray(persisted.crateOrder) &&
      persisted.crateOrder.length === crateOrder.length &&
@@ -3175,7 +3228,9 @@
       searchResults.classList.add('open');
       playSpotifyTrack(items[0], 0);
     } catch(err){
-      renderResultsState('<div class="sr-state">Couldn\'t load that playlist. Try again.</div>');
+      renderResultsState(dropdownErrorHTML("Couldn't load that playlist."));
+      const retryBtn = document.getElementById('srRetryBtn');
+      if(retryBtn) retryBtn.addEventListener('click', () => openSpotifyPlaylist(id, name));
     }
   }
 
@@ -3660,6 +3715,65 @@
     }
   }
   renderLibrary();
+
+  function toggleLikedPreview(item){
+    const trackId = item.raw.trackId;
+    const idx = likedPreviews.findIndex(p => p.trackId === trackId);
+    if(idx >= 0){
+      likedPreviews.splice(idx, 1);
+    } else {
+      likedPreviews.unshift({
+        trackId, title: item.title, artist: item.artist,
+        thumb: item.thumb, previewUrl: item.raw.previewUrl, dur: item.dur
+      });
+    }
+    savePersistedState({ likedPreviews });
+    renderSavedPreviews();
+  }
+
+  function playSavedPreview(p){
+    playTrackObj({
+      title: p.title, artist: p.artist,
+      art: p.thumb ? `url('${p.thumb}') center/cover no-repeat` : palette[0],
+      src: p.previewUrl, dur: p.dur
+    }, null);
+  }
+
+  function renderSavedPreviews(){
+    const section = document.getElementById('savedPreviewsSection');
+    const body = document.getElementById('savedPreviewsBody');
+    section.style.display = likedPreviews.length ? 'block' : 'none';
+    if(!likedPreviews.length) return;
+    body.innerHTML = likedPreviews.map((p, i) => `
+      <tr data-preview-row="${i}">
+        <td class="idx"><span class="idx-label">${i + 1}</span></td>
+        <td colspan="2">
+          <div class="title-cell">
+            <div class="thumb" style="background-image:url('${p.thumb}');background-size:cover;background-position:center;"></div>
+            <div><strong><span class="spin-badge" aria-hidden="true"></span>${escapeHtml(p.title)}</strong><small>${escapeHtml(p.artist)}</small></div>
+          </div>
+        </td>
+        <td class="dur mono">${fmtTime(p.dur)}</td>
+        <td class="heart-cell">
+          <button class="heart-btn liked" data-preview-unheart="${i}" aria-label="Remove">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          </button>
+        </td>
+      </tr>`).join('');
+  }
+  renderSavedPreviews();
+  document.getElementById('savedPreviewsBody').addEventListener('click', (e) => {
+    const unheart = e.target.closest('[data-preview-unheart]');
+    if(unheart){
+      e.stopPropagation();
+      likedPreviews.splice(parseInt(unheart.dataset.previewUnheart, 10), 1);
+      savePersistedState({ likedPreviews });
+      renderSavedPreviews();
+      return;
+    }
+    const row = e.target.closest('[data-preview-row]');
+    if(row) playSavedPreview(likedPreviews[parseInt(row.dataset.previewRow, 10)]);
+  });
   // one-time entrance stagger for the initial paint only — renderLibrary() re-runs
   // on every keystroke while filtering, on reorder, and on like, so baking the
   // animation into the row markup itself would replay it on every re-render
@@ -3955,10 +4069,12 @@
 
   function svCatalogRowHTML(item, i){
     const heart = item.kind === 'spotify'
-      ? `<button class="heart-btn ${likedSpotifyUris.has(item.uri) ? 'liked' : ''}" data-catalog-heart="${i}" aria-label="Save">
+      ? `<button class="heart-btn ${spotifySavedUris.has(item.uri) ? 'liked' : ''}" data-catalog-heart="${i}" aria-label="Save">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
         </button>`
-      : '';
+      : `<button class="heart-btn ${likedPreviews.some(p => p.trackId === item.raw.trackId) ? 'liked' : ''}" data-preview-heart="${i}" aria-label="Save preview">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>`;
     return `
       <div class="sv-song-row" data-catalog-idx="${i}" tabindex="0">
         <div class="thumb" style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"></div>
@@ -4093,16 +4209,31 @@
       const idx = parseInt(catalogHeart.dataset.catalogHeart, 10);
       const item = svCatalogResults[idx];
       if(item && item.kind === 'spotify'){
-        const nowLiked = !likedSpotifyUris.has(item.uri);
-        nowLiked ? likedSpotifyUris.add(item.uri) : likedSpotifyUris.delete(item.uri);
-        catalogHeart.classList.toggle('liked');
+        toggleSpotifySavedTrack(item.uri, item.raw.id, item.raw, (nowSaved) => {
+          catalogHeart.classList.toggle('liked', nowSaved);
+          if(nowSaved){
+            catalogHeart.classList.remove('pop');
+            void catalogHeart.offsetWidth;
+            catalogHeart.classList.add('pop');
+          }
+        });
+      }
+      return;
+    }
+
+    const previewHeart = e.target.closest('[data-preview-heart]');
+    if(previewHeart){
+      const idx = parseInt(previewHeart.dataset.previewHeart, 10);
+      const item = svCatalogResults[idx];
+      if(item && item.kind === 'preview'){
+        toggleLikedPreview(item);
+        const nowLiked = likedPreviews.some(p => p.trackId === item.raw.trackId);
+        previewHeart.classList.toggle('liked', nowLiked);
         if(nowLiked){
-          catalogHeart.classList.remove('pop');
-          void catalogHeart.offsetWidth;
-          catalogHeart.classList.add('pop');
+          previewHeart.classList.remove('pop');
+          void previewHeart.offsetWidth;
+          previewHeart.classList.add('pop');
         }
-        savePersistedState({ likedSpotifyUris:Array.from(likedSpotifyUris) });
-        renderPlaylistSidebar();
       }
       return;
     }
@@ -4270,6 +4401,19 @@
     return String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   }
 
+  function dropdownEmptyHTML(msg){
+    const picks = recentlyPlayed.map(id => tracks[id]).filter(Boolean).slice(0, 3);
+    const chips = picks.length
+      ? `<div class="sr-empty-chips"><span class="empty-chips-label">Try instead —</span>${
+          picks.map(t => `<button type="button" class="empty-chip" data-chip-track="${t.id}">${escapeHtml(t.title)}</button>`).join('')
+        }</div>`
+      : '';
+    return `<div class="sr-state">${escapeHtml(msg)}</div>${chips}`;
+  }
+  function dropdownErrorHTML(msg){
+    return `<div class="sr-state">${escapeHtml(msg)}<br><button type="button" class="empty-chip" id="srRetryBtn" style="margin-top:10px;">Retry</button></div>`;
+  }
+
   async function runLiveSearch(query){
     if(searchAbort) searchAbort.abort();
     searchAbort = new AbortController();
@@ -4278,7 +4422,7 @@
     if(spotifyAccessToken){
       try{
         const spItems = await spotifySearch(query);
-        if(!spItems.length){ renderResultsState('<div class="sr-state">No results. Try another search.</div>'); return; }
+        if(!spItems.length){ renderResultsState(dropdownEmptyHTML('No results. Try another search.')); return; }
         spotifyQueue = spItems;
         spotifyContextName = 'Live search';
         searchResults.innerHTML = spItems.map((t, i) => `
@@ -4302,7 +4446,7 @@
       const data = await res.json();
       const items = (data.results || []).filter(r => r.previewUrl);
       if(!items.length){
-        renderResultsState('<div class="sr-state">No previewable results. Try another search.</div>');
+        renderResultsState(dropdownEmptyHTML('No previewable results. Try another search.'));
         return;
       }
       searchResults.innerHTML = items.map((r, i) => `
@@ -4315,7 +4459,9 @@
       searchResults.dataset.itemsJson = JSON.stringify(items);
     } catch(err){
       if(err.name === 'AbortError') return;
-      renderResultsState('<div class="sr-state">Couldn\'t reach search right now. Check your connection and try again.</div>');
+      renderResultsState(dropdownErrorHTML("Couldn't reach search right now."));
+      const retryBtn = document.getElementById('srRetryBtn');
+      if(retryBtn) retryBtn.addEventListener('click', () => runLiveSearch(query));
     }
   }
 
@@ -4327,6 +4473,12 @@
   });
 
   searchResults.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-chip-track]');
+    if(chip){
+      playTrack(parseInt(chip.dataset.chipTrack, 10));
+      closeResults();
+      return;
+    }
     const recentSearchChip = e.target.closest('[data-recent-search]');
     if(recentSearchChip){
       searchInput.value = recentSearchChip.dataset.recentSearch;
@@ -4727,7 +4879,7 @@
 
   function syncHeart(){
     const isLiked = playbackMode === 'spotify'
-      ? !!(currentSpotifyUri && likedSpotifyUris.has(currentSpotifyUri))
+      ? !!(currentSpotifyUri && spotifySavedUris.has(currentSpotifyUri))
       : (currentIndex !== null && liked.has(currentIndex));
     npHeart.classList.toggle('liked', isLiked);
     npoHeart.classList.toggle('liked', isLiked);
@@ -4762,11 +4914,24 @@
   // ---------------- global toast (small reusable confirmation bubble) ----------------
   const globalToast = document.getElementById('globalToast');
   let globalToastTimer = null;
-  function showGlobalToast(msg){
+  function showGlobalToast(msg, duration = 1800){
     globalToast.textContent = msg;
     globalToast.classList.add('show');
     clearTimeout(globalToastTimer);
-    globalToastTimer = setTimeout(() => globalToast.classList.remove('show'), 1800);
+    globalToastTimer = setTimeout(() => globalToast.classList.remove('show'), duration);
+  }
+
+  // Surfaces Spotify rate-limiting instead of failing silently — throttled so a
+  // burst of requests hitting 429 together only shows one toast, not a stack of them.
+  let spotifyRateLimitToastAt = 0;
+  function notifySpotifyRateLimited(isQuotaExhausted){
+    const now = Date.now();
+    if(now - spotifyRateLimitToastAt < 15000) return;
+    spotifyRateLimitToastAt = now;
+    showGlobalToast(
+      isQuotaExhausted ? "Spotify's request limit is used up for now — try again later" : "Spotify's being slow right now — retrying…",
+      3500
+    );
   }
 
   // ---------------- track view (Spotify-style detail page for the current track) ----------------
@@ -4858,11 +5023,21 @@
     npoArtist.textContent = track.artists.map(a => a.name).join(', ');
     npoDurTime.textContent = fmtTime(track.duration_ms / 1000);
     updateNpoContext();
-    syncHeart();
     highlightActive();
     currentSpotifyUri = track.uri;
+    currentSpotifyTrackObj = track;
     onTrackChangedForLyrics();
     if(usingSpotifyChart) renderSpotifyLibraryRows();
+    // heart state as we know it so far (accurate once the library has loaded at
+    // least once); double-check against the API in case it hasn't
+    syncHeart();
+    if(!spotifyLibraryRequested){
+      spotifyIsTrackSaved(track.id).then(saved => {
+        if(currentSpotifyUri !== track.uri) return; // track changed again before this resolved
+        if(saved) spotifySavedUris.add(track.uri); else spotifySavedUris.delete(track.uri);
+        syncHeart();
+      }).catch(err => console.warn('Could not verify Spotify saved state:', err));
+    }
     if(typeof queueDrawer !== 'undefined' && queueDrawer.classList.contains('open')) renderQueueDrawer();
     isPlaying = true;
     updatePlayIcon(true);
@@ -5313,7 +5488,12 @@
   function stepTrack(dir){
     if(playbackMode === 'spotify'){
       if(!spotifyQueue.length) return;
-      const next = (spotifyQueueIndex + dir + spotifyQueue.length) % spotifyQueue.length;
+      let next;
+      if(shuffleOn && spotifyQueue.length > 1){
+        do{ next = Math.floor(Math.random() * spotifyQueue.length); } while(next === spotifyQueueIndex);
+      } else {
+        next = (spotifyQueueIndex + dir + spotifyQueue.length) % spotifyQueue.length;
+      }
       playSpotifyTrack(spotifyQueue[next], next);
       return;
     }
@@ -5457,17 +5637,17 @@
   function toggleHeart(){
     if(playbackMode === 'spotify'){
       if(!currentSpotifyUri) return;
-      const nowLiked = !likedSpotifyUris.has(currentSpotifyUri);
-      nowLiked ? likedSpotifyUris.add(currentSpotifyUri) : likedSpotifyUris.delete(currentSpotifyUri);
-      syncHeart();
-      if(nowLiked){
+      const trackId = currentSpotifyUri.split(':').pop();
+      toggleSpotifySavedTrack(currentSpotifyUri, trackId, currentSpotifyTrackObj, (nowSaved) => {
         [npHeart, npoHeart].forEach(btn => {
-          btn.classList.remove('pop');
-          void btn.offsetWidth;
-          btn.classList.add('pop');
+          btn.classList.toggle('liked', nowSaved);
+          if(nowSaved){
+            btn.classList.remove('pop');
+            void btn.offsetWidth;
+            btn.classList.add('pop');
+          }
         });
-      }
-      savePersistedState({ likedSpotifyUris: Array.from(likedSpotifyUris) });
+      });
       return;
     }
     if(currentIndex === null) return;
@@ -5802,6 +5982,7 @@
   let spotifyLibraryIsReal = false; // true = these are the person's real Liked Songs; false = fallback chart
   let spotifySavedUris = new Set(); // uris confirmed saved, so hearts render filled
   let currentSpotifyUri = null;
+  let currentSpotifyTrackObj = null;
 
   async function loadSpotifyLibrary(){
     try{
@@ -5839,25 +6020,37 @@
     }
   }
 
-  async function toggleSpotifySavedTrack(uri, trackId, heartBtn){
+  async function toggleSpotifySavedTrack(uri, trackId, trackObj, onChange){
     const nowSaved = !spotifySavedUris.has(uri);
     // optimistic UI update
     nowSaved ? spotifySavedUris.add(uri) : spotifySavedUris.delete(uri);
-    if(heartBtn) heartBtn.classList.toggle('liked', nowSaved);
+    if(onChange) onChange(nowSaved);
     try{
       const res = nowSaved ? await spotifySaveTrack(trackId) : await spotifyRemoveSavedTrack(trackId);
       if(!res.ok) throw new Error('save/unsave failed: ' + res.status);
     } catch(err){
       // revert on failure
       nowSaved ? spotifySavedUris.delete(uri) : spotifySavedUris.add(uri);
-      if(heartBtn) heartBtn.classList.toggle('liked', !nowSaved);
+      if(onChange) onChange(!nowSaved);
       console.warn('Could not update Spotify Liked Songs:', err);
       return;
     }
-    // if we're viewing the real Liked Songs list and a track was unliked, drop its row
-    if(spotifyLibraryIsReal && !nowSaved){
-      spotifyChartTracks = spotifyChartTracks.filter(t => t.uri !== uri);
-      renderSpotifyLibraryRows();
+    if(spotifyLibraryIsReal){
+      if(!nowSaved){
+        // viewing the real Liked Songs list and a track was unliked — drop its row
+        spotifyChartTracks = spotifyChartTracks.filter(t => t.uri !== uri);
+        renderSpotifyLibraryRows();
+      } else if(trackObj && !spotifyChartTracks.some(t => t.uri === uri)){
+        // newly liked from somewhere other than the library itself (Now Playing,
+        // search) — reflect it immediately instead of waiting for a reload
+        spotifyChartTracks = [trackObj, ...spotifyChartTracks];
+        renderSpotifyLibraryRows();
+      }
+    } else if(nowSaved){
+      // was showing the Today's Top Hits fallback because there were no saved
+      // tracks yet — this is (most likely) their first ever save, so switch
+      // the library over to the real Liked Songs list now that one exists
+      loadSpotifyLibrary();
     }
   }
 
@@ -5902,7 +6095,11 @@
     const heartBtn = e.target.closest('[data-spotify-heart]');
     if(!heartBtn) return;
     e.stopPropagation();
-    toggleSpotifySavedTrack(heartBtn.dataset.spotifyHeart, heartBtn.dataset.spotifyTrackId, heartBtn);
+    const uri = heartBtn.dataset.spotifyHeart;
+    const trackObj = spotifyChartTracks.find(t => t.uri === uri) || null;
+    toggleSpotifySavedTrack(uri, heartBtn.dataset.spotifyTrackId, trackObj, (nowSaved) => {
+      heartBtn.classList.toggle('liked', nowSaved);
+    });
   });
 </script>
 </body>
