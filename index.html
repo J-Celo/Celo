@@ -16,8 +16,15 @@
      Spotify account that's logged in, and only if that account has Premium.
      Free accounts can authenticate but Spotify will block playback.
   5. Note: the EQ, crossfade, and audio-reactive glow/visualizer only work on
-     local tracks (demo library + preview search) — Spotify's SDK plays audio
-     through its own DRM pipeline that isn't accessible to the Web Audio API.
+     local tracks (demo library + Audius/Jamendo/iTunes search + uploads) —
+     Spotify's SDK plays audio through its own DRM pipeline that isn't
+     accessible to the Web Audio API.
+  6. Optional — Jamendo fallback: Audius is the primary no-login search source
+     and needs no key. Jamendo is an extra fallback (Creative Commons catalog)
+     used only if Audius is unreachable. To enable it, get a free client_id at
+     https://developer.jamendo.com and paste it into JAMENDO_CLIENT_ID below.
+     Leave it as-is to skip Jamendo and go straight to the iTunes 30s-preview
+     fallback instead.
   ============================================================
 -->
 <title>CELO</title>
@@ -828,6 +835,35 @@
     color:#06070C;
     box-shadow:0 2px 12px rgba(57,245,196,0.4);
   }
+  /* ---- source badges — small tags marking where a track's audio comes from
+     (Spotify full track, Audius/Jamendo full track, iTunes 30s preview, or a
+     locally uploaded file), so it's clear at a glance in search/library rows ---- */
+  .src-badge{
+    display:inline-flex;
+    align-items:center;
+    padding:2px 7px;
+    border-radius:5px;
+    font-size:9.5px;
+    font-weight:700;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    line-height:1.6;
+    flex-shrink:0;
+    border:1px solid transparent;
+  }
+  .src-badge.src-spotify{ background:rgba(30,215,96,0.14); color:#1ED760; border-color:rgba(30,215,96,0.3); }
+  .src-badge.src-audius{ background:rgba(204,42,255,0.14); color:#CC2AFF; border-color:rgba(204,42,255,0.3); }
+  .src-badge.src-jamendo{ background:rgba(242,153,74,0.14); color:#F2994A; border-color:rgba(242,153,74,0.3); }
+  .src-badge.src-itunes{ background:rgba(155,163,196,0.14); color:var(--text-dim); border-color:rgba(155,163,196,0.25); }
+  .src-badge.src-local{ background:rgba(57,245,196,0.14); color:var(--accent); border-color:rgba(57,245,196,0.3); }
+  .card .src-badge{
+    position:absolute;
+    top:8px; right:8px;
+    z-index:4;
+  }
+  .sr-row .src-badge, .sv-song-row .src-badge{ margin-left:8px; }
+  .card .art{ position:relative; }
+
   .card.playing{ background:var(--card-hover); border-color:rgba(57,245,196,0.4); box-shadow:0 0 22px rgba(57,245,196,0.14); }
   .card.playing h3{ color:var(--accent); text-shadow:0 0 12px rgba(57,245,196,0.5); }
   .spin-badge{
@@ -1104,7 +1140,7 @@
   .sv-song-list{ display:flex; flex-direction:column; }
   .sv-song-row{
     display:grid;
-    grid-template-columns:40px 1fr auto auto auto;
+    grid-template-columns:40px 1fr auto auto auto auto;
     align-items:center;
     gap:14px;
     padding:8px 10px;
@@ -2257,6 +2293,8 @@
       </div>
 
       <div class="topbar-right">
+        <input type="file" id="uploadInput" accept="audio/*" multiple style="display:none">
+        <button class="spotify-connect-btn" id="uploadBtn" title="Play your own audio files">Upload songs</button>
         <button class="spotify-connect-btn" id="spotifyConnectBtn">Connect Spotify</button>
         <button class="settings-btn" id="shortcutsBtn" aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
@@ -2315,6 +2353,22 @@
       <section class="shelf" id="madeForYou">
         <div class="shelf-head"><h2 class="display">Picked for your crate</h2><a href="#" tabindex="-1">Show all</a></div>
         <div class="card-row" id="madeForYouRow"></div>
+      </section>
+
+      <section class="shelf" id="uploadsSection" style="display:none;">
+        <div class="shelf-head">
+          <h2 class="display">Your uploads</h2>
+          <span class="shelf-subnote">Local files — kept only for this session</span>
+        </div>
+        <div class="card-row" id="uploadsRow"></div>
+      </section>
+
+      <section class="shelf" id="discoverSection">
+        <div class="shelf-head">
+          <h2 class="display">Discover — independent artists</h2>
+          <span class="shelf-subnote">From Audius, full tracks, no login needed</span>
+        </div>
+        <div class="card-row" id="discoverRow"></div>
       </section>
 
       <section class="shelf" id="librarySection">
@@ -3979,7 +4033,103 @@
   }
   renderHomeShelves();
 
-  // Fetches real "recently played" / "top tracks" data from Spotify and swaps
+  // ---------------- Discover shelf (Audius trending — full tracks, no login) ----------------
+  let discoverTracks = [];
+  function cardHTMLDiscover(item, i){
+    return `
+      <div class="card" data-discover-idx="${i}" tabindex="0" style="animation-delay:${Math.min(i,10)*45}ms">
+        <div class="art" style="background-image:url('${item.artworkUrl100}');background-size:cover;background-position:center;">
+          ${srcBadgeHTML('audius')}
+          <button class="play-fab" aria-label="Play ${escapeHtml(item.trackName)}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+        </div>
+        <h3><span class="spin-badge" aria-hidden="true"></span>${escapeHtml(item.trackName)}</h3>
+        <p>${escapeHtml(item.artistName)}</p>
+      </div>`;
+  }
+  function renderDiscoverShelf(){
+    const row = document.getElementById('discoverRow');
+    if(!row) return;
+    row.innerHTML = discoverTracks.map(cardHTMLDiscover).join('');
+  }
+  function playDiscoverTrack(idx){
+    const t = discoverTracks[idx];
+    if(!t) return;
+    playTrackObj({
+      title: t.trackName, artist: t.artistName,
+      art: t.artworkUrl100 ? `url('${t.artworkUrl100}') center/cover no-repeat` : palette[idx % palette.length],
+      src: t.previewUrl, dur: t.trackTimeMillis ? t.trackTimeMillis/1000 : 0
+    }, null);
+  }
+  async function loadDiscoverShelf(){
+    try{
+      discoverTracks = await audiusTrending(10);
+      renderDiscoverShelf();
+    } catch(err){
+      // Audius unreachable — just leave the shelf hidden rather than erroring the whole page
+      const section = document.getElementById('discoverSection');
+      if(section) section.style.display = 'none';
+    }
+  }
+  loadDiscoverShelf();
+
+  // ---------------- local file uploads (real, full songs, fully offline) ----------------
+  let localUploads = []; // {title, artist, art, dur, src}
+  let localUploadCounter = 0;
+  function cardHTMLUpload(t, i){
+    return `
+      <div class="card" data-upload-idx="${i}" tabindex="0" style="animation-delay:${Math.min(i,10)*45}ms">
+        <div class="art" style="background:${t.art}">
+          ${srcBadgeHTML('local')}
+          <button class="play-fab" aria-label="Play ${escapeHtml(t.title)}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+        </div>
+        <h3><span class="spin-badge" aria-hidden="true"></span>${escapeHtml(t.title)}</h3>
+        <p>${escapeHtml(t.artist)}</p>
+      </div>`;
+  }
+  function renderUploadsShelf(){
+    const section = document.getElementById('uploadsSection');
+    const row = document.getElementById('uploadsRow');
+    if(!section || !row) return;
+    section.style.display = localUploads.length ? '' : 'none';
+    row.innerHTML = localUploads.map(cardHTMLUpload).join('');
+  }
+  function playUploadTrack(idx){
+    const t = localUploads[idx];
+    if(!t) return;
+    playTrackObj({ title:t.title, artist:t.artist, art:t.art, src:t.src, dur:t.dur }, null);
+  }
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadInput = document.getElementById('uploadInput');
+  if(uploadBtn && uploadInput){
+    uploadBtn.addEventListener('click', () => uploadInput.click());
+    uploadInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('audio/'));
+      files.forEach(file => {
+        const src = URL.createObjectURL(file);
+        const title = file.name.replace(/\.[^/.]+$/, '');
+        const track = {
+          title, artist:'Uploaded', dur:0, src,
+          art: palette[localUploadCounter % palette.length]
+        };
+        localUploadCounter++;
+        localUploads.push(track);
+        // read real duration once the browser can decode it, then re-render
+        const probe = new Audio();
+        probe.preload = 'metadata';
+        probe.src = src;
+        probe.addEventListener('loadedmetadata', () => {
+          track.dur = probe.duration || 0;
+          renderUploadsShelf();
+        }, { once:true });
+      });
+      renderUploadsShelf();
+      e.target.value = ''; // allow re-selecting the same file later
+    });
+  }
   // the Home shelves over to it. Leaves the demo picks in place on failure.
   async function loadSpotifyHomeShelves(){
     const recent = await spotifyGetRecentlyPlayed(20).catch(err => { console.warn('Could not load Spotify recently played:', err); return []; });
@@ -4007,6 +4157,8 @@
       const card = e.target.closest('.card');
       if(!card) return;
       if(card.dataset.spotifyUri){ playHomeSpotifyCard(card, row); return; }
+      if(card.dataset.discoverIdx !== undefined){ playDiscoverTrack(parseInt(card.dataset.discoverIdx, 10)); return; }
+      if(card.dataset.uploadIdx !== undefined){ playUploadTrack(parseInt(card.dataset.uploadIdx, 10)); return; }
       playTrack(parseInt(card.dataset.track, 10));
     });
     row.addEventListener('keydown', (e) => {
@@ -4014,6 +4166,8 @@
         const card = e.target.closest('.card');
         if(!card) return;
         if(card.dataset.spotifyUri){ playHomeSpotifyCard(card, row); return; }
+        if(card.dataset.discoverIdx !== undefined){ playDiscoverTrack(parseInt(card.dataset.discoverIdx, 10)); return; }
+        if(card.dataset.uploadIdx !== undefined){ playUploadTrack(parseInt(card.dataset.uploadIdx, 10)); return; }
         playTrack(parseInt(card.dataset.track, 10));
       }
     });
@@ -4450,6 +4604,7 @@
       <div class="sv-song-row" data-catalog-idx="${i}" tabindex="0">
         <div class="thumb" style="background-image:url('${item.thumb}');background-size:cover;background-position:center;"></div>
         <div class="meta"><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.artist)}</small></div>
+        ${srcBadgeHTML(item.source)}
         <div class="dur mono">${fmtTime(item.dur)}</div>
         ${heart}
         <button class="row-menu-btn" data-row-menu="catalog" data-row-menu-idx="${i}" aria-label="More options for ${escapeHtml(item.title)}" aria-haspopup="true">
@@ -4835,6 +4990,103 @@
   });
   window.addEventListener('resize', () => { if(atpMenu.classList.contains('open')) closeAtpMenu(); });
 
+  // ---------------- Audius fallback (real, full-length songs, no login) ----------------
+  // Audius is an open, free music catalog with a public API — no API key, no
+  // account, no OAuth. Unlike iTunes' 30s previews, the stream URLs here are
+  // full tracks, and since they're plain <audio> sources (not DRM-wrapped like
+  // Spotify's SDK), the EQ/crossfade/visualizer still work on them.
+  // Shaped to look exactly like an iTunes search result (trackName, artistName,
+  // artworkUrl100, previewUrl, trackTimeMillis, trackId) so every place that
+  // already consumes iTunes results downstream needs zero other changes.
+  async function audiusSearch(query, signal){
+    const url = 'https://api.audius.co/v1/tracks/search?app_name=CELO&query=' + encodeURIComponent(query);
+    const res = await fetch(url, { signal });
+    if(!res.ok) throw new Error('audius search failed: ' + res.status);
+    const data = await res.json();
+    return (data.data || []).map(t => ({
+      trackId: t.id,
+      trackName: t.title,
+      artistName: (t.user && t.user.name) || 'Unknown artist',
+      artworkUrl100: (t.artwork && (t.artwork['480x480'] || t.artwork['150x150'] || t.artwork['1000x1000'])) || '',
+      // full-length stream, not a preview clip
+      previewUrl: 'https://api.audius.co/v1/tracks/' + t.id + '/stream?app_name=CELO',
+      trackTimeMillis: (t.duration || 0) * 1000,
+      source: 'audius'
+    }));
+  }
+
+  // Audius's trending endpoint, used to populate the Home "Discover" shelf
+  // with no search query needed.
+  async function audiusTrending(limit = 10){
+    const url = 'https://api.audius.co/v1/tracks/trending?app_name=CELO&limit=' + limit;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('audius trending failed: ' + res.status);
+    const data = await res.json();
+    return (data.data || []).map(t => ({
+      trackId: t.id,
+      trackName: t.title,
+      artistName: (t.user && t.user.name) || 'Unknown artist',
+      artworkUrl100: (t.artwork && (t.artwork['480x480'] || t.artwork['150x150'] || t.artwork['1000x1000'])) || '',
+      previewUrl: 'https://api.audius.co/v1/tracks/' + t.id + '/stream?app_name=CELO',
+      trackTimeMillis: (t.duration || 0) * 1000,
+      source: 'audius'
+    }));
+  }
+
+  // ---------------- Jamendo fallback (optional — needs a free client_id) ----------------
+  // Only used if Audius is unreachable. Skipped silently (falls straight
+  // through to iTunes previews) until a real client_id is set — see the setup
+  // notes at the top of this file for how to get one.
+  const JAMENDO_CLIENT_ID = 'YOUR_JAMENDO_CLIENT_ID';
+  async function jamendoSearch(query, signal){
+    if(!JAMENDO_CLIENT_ID || JAMENDO_CLIENT_ID === 'YOUR_JAMENDO_CLIENT_ID'){
+      throw new Error('Jamendo not configured');
+    }
+    const url = 'https://api.jamendo.com/v3.0/tracks/?client_id=' + encodeURIComponent(JAMENDO_CLIENT_ID) +
+      '&format=json&limit=8&namesearch=' + encodeURIComponent(query);
+    const res = await fetch(url, { signal });
+    if(!res.ok) throw new Error('jamendo search failed: ' + res.status);
+    const data = await res.json();
+    return (data.results || []).map(t => ({
+      trackId: t.id,
+      trackName: t.name,
+      artistName: t.artist_name || 'Unknown artist',
+      artworkUrl100: t.image || '',
+      previewUrl: t.audio || '',
+      trackTimeMillis: t.duration ? t.duration * 1000 : 0,
+      source: 'jamendo'
+    }));
+  }
+
+  // Tries each free, no-login catalog in order and returns whichever succeeds
+  // first with results: Audius -> Jamendo (if configured) -> iTunes previews.
+  // Every branch returns items in the same shape, tagged with `source` for
+  // the little badge shown on each row.
+  async function freeCatalogSearch(query, signal){
+    try{
+      const audiusItems = await audiusSearch(query, signal);
+      if(audiusItems.filter(r => r.previewUrl).length) return { items: audiusItems.filter(r => r.previewUrl), source:'audius' };
+    } catch(err){ if(err.name === 'AbortError') throw err; }
+
+    try{
+      const jamendoItems = await jamendoSearch(query, signal);
+      if(jamendoItems.filter(r => r.previewUrl).length) return { items: jamendoItems.filter(r => r.previewUrl), source:'jamendo' };
+    } catch(err){ if(err.name === 'AbortError') throw err; }
+
+    const url = 'https://itunes.apple.com/search?media=music&limit=8&term=' + encodeURIComponent(query);
+    const res = await fetch(url, { signal });
+    if(!res.ok) throw new Error('bad response');
+    const data = await res.json();
+    const items = (data.results || []).filter(r => r.previewUrl).map(r => ({ ...r, source:'itunes' }));
+    return { items, source:'itunes' };
+  }
+
+  function srcBadgeHTML(source){
+    const label = { spotify:'Spotify', audius:'Audius', jamendo:'Jamendo', itunes:'Preview', local:'Local' }[source];
+    if(!label) return '';
+    return `<span class="src-badge src-${source}">${label}</span>`;
+  }
+
   async function loadCatalogFallback(query){
     const myToken = ++svCatalogToken;
     if(svCatalogAbort) svCatalogAbort.abort();
@@ -4846,29 +5098,23 @@
       try{
         const spItems = await spotifySearch(query);
         items = spItems.map(t => ({
-          kind:'spotify', raw:t, uri:t.uri,
+          kind:'spotify', raw:t, uri:t.uri, source:'spotify',
           title:t.name, artist:t.artists.map(a => a.name).join(', '),
           thumb:(t.album && t.album.images[2]) ? t.album.images[2].url : ((t.album && t.album.images[0]) ? t.album.images[0].url : ''),
           dur:t.duration_ms/1000
         }));
-      } catch(err){ /* fall through to iTunes preview search below */ }
+      } catch(err){ /* fall through to the free-catalog search below */ }
     }
 
     if(!items.length){
       try{
-        const url = 'https://itunes.apple.com/search?media=music&limit=8&term=' + encodeURIComponent(query);
-        const res = await fetch(url, { signal:svCatalogAbort.signal });
-        if(res.ok){
-          const data = await res.json();
-          items = (data.results || []).filter(r => r.previewUrl).map(r => ({
-            kind:'preview', raw:r,
-            title:r.trackName || 'Unknown title', artist:r.artistName || 'Unknown artist',
-            thumb:(r.artworkUrl100 || '').replace('100x100','400x400'),
-            dur:r.trackTimeMillis ? r.trackTimeMillis/1000 : 30
-          }));
-        } else {
-          networkFailed = true;
-        }
+        const { items: freeItems } = await freeCatalogSearch(query, svCatalogAbort.signal);
+        items = freeItems.map(r => ({
+          kind:'preview', raw:r, source:r.source,
+          title:r.trackName || 'Unknown title', artist:r.artistName || 'Unknown artist',
+          thumb:r.artworkUrl100 || '',
+          dur:r.trackTimeMillis ? r.trackTimeMillis/1000 : 30
+        }));
       } catch(err){
         if(err.name !== 'AbortError') networkFailed = true; // AbortError expected if the person kept typing — ignore
       }
@@ -5084,7 +5330,8 @@
 
   // ---------------- live search ----------------
   // Connected to Spotify -> real catalog search, full-track playback.
-  // Not connected -> iTunes Search API fallback, 30s previews, no login needed.
+  // Not connected -> Audius fallback, full-track playback, no login needed
+  // (iTunes 30s previews as a last-resort fallback if Audius is unreachable).
   const searchResults = document.getElementById('searchResults');
   let searchDebounce = null;
   let searchAbort = null;
@@ -5170,6 +5417,7 @@
           <div class="sr-row" data-idx="${i}" data-source="spotify">
             <div class="sr-thumb" style="background-image:url('${t.album.images[2] ? t.album.images[2].url : (t.album.images[0]||{}).url || ''}')"></div>
             <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
+            ${srcBadgeHTML('spotify')}
             <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
             <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(t.name)}" aria-haspopup="true">
               <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
@@ -5179,39 +5427,40 @@
         return;
       } catch(err){
         renderResultsState('<div class="sr-state">Spotify search failed — falling back to previews…</div>');
-        // fall through to the iTunes preview fallback below
+        // fall through to the free-catalog fallback below
       }
     }
 
+    let items = [];
     try{
-      const url = 'https://itunes.apple.com/search?media=music&limit=8&term=' + encodeURIComponent(query);
-      const res = await fetch(url, { signal: searchAbort.signal });
-      if(!res.ok) throw new Error('bad response');
-      const data = await res.json();
-      const items = (data.results || []).filter(r => r.previewUrl);
-      if(!items.length){
-        renderResultsState(dropdownEmptyHTML('No previewable results. Try another search.'));
-        return;
-      }
-      openPlaylistTracks = null;
-      openPlaylistId = null;
-      searchResults.innerHTML = items.map((r, i) => `
-        <div class="sr-row" data-idx="${i}" data-source="preview">
-          <div class="sr-thumb" style="background-image:url('${(r.artworkUrl100 || '').replace(/'/g,"\\'")}')"></div>
-          <div class="sr-meta"><strong>${escapeHtml(r.trackName || 'Unknown title')}</strong><small>${escapeHtml(r.artistName || 'Unknown artist')}</small></div>
-          <div class="sr-dur">${r.trackTimeMillis ? fmtTime(r.trackTimeMillis/1000) : '0:30'}</div>
-          <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(r.trackName || 'this track')}" aria-haspopup="true">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-          </button>
-        </div>`).join('');
-      searchResults.classList.add('open');
-      searchResults.dataset.itemsJson = JSON.stringify(items);
+      const { items: freeItems } = await freeCatalogSearch(query, searchAbort.signal);
+      items = freeItems;
     } catch(err){
       if(err.name === 'AbortError') return;
       renderResultsState(dropdownErrorHTML("Couldn't reach search right now."));
       const retryBtn = document.getElementById('srRetryBtn');
       if(retryBtn) retryBtn.addEventListener('click', () => runLiveSearch(query));
+      return;
     }
+
+    if(!items.length){
+      renderResultsState(dropdownEmptyHTML('No results. Try another search.'));
+      return;
+    }
+    openPlaylistTracks = null;
+    openPlaylistId = null;
+    searchResults.innerHTML = items.map((r, i) => `
+      <div class="sr-row" data-idx="${i}" data-source="preview">
+        <div class="sr-thumb" style="background-image:url('${(r.artworkUrl100 || '').replace(/'/g,"\\'")}')"></div>
+        <div class="sr-meta"><strong>${escapeHtml(r.trackName || 'Unknown title')}</strong><small>${escapeHtml(r.artistName || 'Unknown artist')}</small></div>
+        ${srcBadgeHTML(r.source)}
+        <div class="sr-dur">${r.trackTimeMillis ? fmtTime(r.trackTimeMillis/1000) : '0:30'}</div>
+        <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(r.trackName || 'this track')}" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+      </div>`).join('');
+    searchResults.classList.add('open');
+    searchResults.dataset.itemsJson = JSON.stringify(items);
   }
 
   searchInput.addEventListener('input', () => {
