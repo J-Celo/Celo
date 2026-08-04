@@ -1130,6 +1130,33 @@
   .row-menu-btn:hover, .row-menu-btn.active{ opacity:1; background:var(--card-hover); }
   .row-menu-btn svg{ width:17px; height:17px; }
 
+  .row-ctx-menu{
+    position:fixed; z-index:500; width:230px;
+    background:var(--card); border:1px solid var(--line);
+    border-radius:12px; box-shadow:0 16px 40px rgba(0,0,0,.5);
+    padding:6px; display:none;
+    animation:reveal-up .16s cubic-bezier(.22,.7,.35,1) both;
+  }
+  .row-ctx-menu.open{ display:block; }
+  .row-ctx-header{
+    display:flex; align-items:center; gap:10px; padding:8px 9px 10px;
+    border-bottom:1px solid var(--line); margin-bottom:4px;
+  }
+  .row-ctx-thumb{ width:34px; height:34px; border-radius:7px; background:var(--card-hover); flex-shrink:0; background-size:cover; background-position:center; }
+  .row-ctx-meta{ min-width:0; }
+  .row-ctx-meta strong{ font-weight:600; font-size:13.5px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-ctx-meta small{ display:block; color:var(--text-faint); font-size:11.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-ctx-item{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    background:none; border:none; color:var(--text); font-size:13.5px; padding:9px;
+    border-radius:8px; cursor:pointer;
+  }
+  .row-ctx-item:hover{ background:var(--card-hover); }
+  .row-ctx-item svg{ width:16px; height:16px; flex-shrink:0; color:var(--text-dim); }
+  .row-ctx-item .row-ctx-chevron{ margin-left:auto; width:14px; height:14px; }
+  #rowCtxRemove:hover{ color:var(--red); }
+  #rowCtxRemove:hover svg{ color:var(--red); }
+
   .atp-menu{
     position:fixed; z-index:500; width:240px;
     background:var(--card); border:1px solid var(--line);
@@ -1794,6 +1821,12 @@
     cursor:pointer;
     transition:background .15s ease;
   }
+  .queue-remove-btn{
+    flex-shrink:0; background:none; border:none; color:var(--text-faint); opacity:.6; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:6px; border-radius:6px;
+    transition:opacity .12s ease, background .12s ease, color .12s ease;
+  }
+  .queue-remove-btn:hover{ opacity:1; background:var(--card-hover); color:var(--red); }
   .queue-row:hover{ background:var(--card); }
   .queue-row.current{ background:rgba(57,245,196,0.08); }
   .queue-row.current .meta strong{ color:var(--accent); }
@@ -2642,6 +2675,38 @@
       </div>
     </div>
 
+    <!-- ================= ROW CONTEXT MENU — opened from the ⋯ on any track row ================= -->
+    <div class="row-ctx-menu" id="rowCtxMenu" role="menu" aria-hidden="true">
+      <div class="row-ctx-header">
+        <div class="row-ctx-thumb" id="rowCtxThumb"></div>
+        <div class="row-ctx-meta">
+          <strong id="rowCtxTitle"></strong>
+          <small id="rowCtxArtist"></small>
+        </div>
+      </div>
+      <button type="button" class="row-ctx-item" id="rowCtxPlayNow">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        Play Now
+      </button>
+      <button type="button" class="row-ctx-item" id="rowCtxAddQueue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="11" y2="18"/><line x1="18" y1="9" x2="18" y2="19"/><line x1="13" y1="14" x2="23" y2="14"/></svg>
+        Add to Queue
+      </button>
+      <button type="button" class="row-ctx-item" id="rowCtxRemove" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="11" y2="18"/><line x1="18" y1="9" x2="24" y2="15"/><line x1="24" y1="9" x2="18" y2="15"/></svg>
+        Remove from Playlist
+      </button>
+      <button type="button" class="row-ctx-item" id="rowCtxAddPlaylist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="15" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="11" y2="18"/><line x1="18" y1="9" x2="18" y2="19"/><line x1="13" y1="14" x2="23" y2="14"/></svg>
+        Add to Playlist
+        <svg class="row-ctx-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button type="button" class="row-ctx-item" id="rowCtxCopyLink" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Copy Track Link
+      </button>
+    </div>
+
     <!-- ================= ADD TO PLAYLIST — opened from the ⋯ menu on a search row ================= -->
     <div class="atp-menu" id="atpMenu" role="menu" aria-hidden="true">
       <div class="atp-menu-header">Add to playlist</div>
@@ -3338,6 +3403,49 @@
     catch(err){ console.warn('Could not save local playlists:', err); }
   }
 
+  // manually queued tracks ("Add to Queue" from the ⋯ menu) — a FIFO of canonical
+  // tracks that jump ahead of whatever would naturally play next. Checked at the
+  // top of stepTrack(1), so it covers the Next button, natural end-of-track, and
+  // both playback modes with one change. Intentionally not persisted — like a
+  // real "up next" queue, it's a session thing, not part of the saved library.
+  let manualQueue = [];
+
+  function removeTrackFromLocalPlaylist(playlistId, trackIdx){
+    const p = localPlaylists.find(pl => pl.id === playlistId);
+    if(!p || !p.tracks[trackIdx]) return;
+    p.tracks.splice(trackIdx, 1);
+    saveLocalPlaylists();
+    renderPlaylistSidebar();
+  }
+
+  // plays a canonical track ({kind, id, uri, title, artist, thumb, dur, src})
+  // as a standalone item, independent of whatever queue/context it came from —
+  // used by "Play Now" and by the manual queue when it hands off a track
+  function playCanonicalTrack(t){
+    if(t.kind === 'demo'){
+      playTrack(t.id);
+      return;
+    }
+    if(t.kind === 'preview'){
+      playTrackObj({
+        title: t.title, artist: t.artist,
+        art: t.thumb ? `url('${t.thumb}') center/cover no-repeat` : palette[0],
+        src: t.src, dur: t.dur
+      }, null);
+      return;
+    }
+    // spotify — a single-item queue so it plays in isolation; if there's more
+    // in the manual queue behind it, stepTrack(1) will drain that before this
+    // one-item queue would ever matter
+    spotifyQueue = [{
+      uri: t.uri, id: t.id, name: t.title,
+      artists: [{ name: t.artist }], album: { images: [{ url: t.thumb }] },
+      duration_ms: t.dur * 1000
+    }];
+    spotifyContextName = 'Playing next';
+    playSpotifyTrack(spotifyQueue[0], 0);
+  }
+
   // ---------------- render: sidebar playlists ----------------
   const playlistList = document.getElementById('playlistList');
 
@@ -3402,6 +3510,7 @@
   }
 
   let openPlaylistTracks = null; // the track list of whichever local playlist is currently open in the dropdown, for playPlaylistTrackAt
+  let openPlaylistId = null;     // the id of that same playlist, so "Remove from Playlist" knows what to modify
   function openLocalPlaylist(id){
     const p = localPlaylists.find(pl => pl.id === id);
     if(!p) return;
@@ -3410,11 +3519,13 @@
     contentEl.classList.remove('is-searching');
     if(!p.tracks.length){
       openPlaylistTracks = null;
+      openPlaylistId = null;
       renderResultsState(`<div class="sr-state">${escapeHtml(p.name)} is empty. Add songs from search using the ⋯ menu next to any track.</div>`);
       searchResults.classList.add('open');
       return;
     }
     openPlaylistTracks = p.tracks;
+    openPlaylistId = id;
     spotifyContextName = p.name;
     searchResults.innerHTML = p.tracks.map((t, i) => {
       const d = playlistTrackDisplay(t);
@@ -3423,6 +3534,9 @@
         <div class="sr-thumb" style="${d.thumb ? `background-image:url('${d.thumb}')` : `background:${palette[i % palette.length]}`}"></div>
         <div class="sr-meta"><strong>${escapeHtml(d.title)}</strong><small>${escapeHtml(d.artist)}</small></div>
         <div class="sr-dur">${fmtTime(d.dur)}</div>
+        <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(d.title)}" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
       </div>`;
     }).join('');
     searchResults.classList.add('open');
@@ -3442,6 +3556,8 @@
       }
       spotifyQueue = items;
       spotifyContextName = name;
+      openPlaylistTracks = null;
+      openPlaylistId = null;
       const truncatedNote = truncated
         ? `<div class="sr-state">Showing the first ${items.length} tracks — this playlist has more.</div>`
         : '';
@@ -3450,6 +3566,9 @@
           <div class="sr-thumb" style="background-image:url('${t.album.images[2] ? t.album.images[2].url : (t.album.images[0]||{}).url || ''}')"></div>
           <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
           <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
+          <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(t.name)}" aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
         </div>`).join('');
       searchResults.classList.add('open');
       playSpotifyTrack(items[0], 0);
@@ -4452,6 +4571,103 @@
   let atpPendingTrack = null;
   let atpToastTimer = null;
 
+  // ---------------- row context menu (Play Now / Add to Queue / Remove / Add to Playlist / Copy Link) ----------------
+  const rowCtxMenu = document.getElementById('rowCtxMenu');
+  const rowCtxThumb = document.getElementById('rowCtxThumb');
+  const rowCtxTitle = document.getElementById('rowCtxTitle');
+  const rowCtxArtist = document.getElementById('rowCtxArtist');
+  const rowCtxPlayNow = document.getElementById('rowCtxPlayNow');
+  const rowCtxAddQueue = document.getElementById('rowCtxAddQueue');
+  const rowCtxRemove = document.getElementById('rowCtxRemove');
+  const rowCtxAddPlaylist = document.getElementById('rowCtxAddPlaylist');
+  const rowCtxCopyLink = document.getElementById('rowCtxCopyLink');
+  let rowCtxTrack = null;   // canonical track the open menu refers to
+  let rowCtxPlayFn = null;  // () => void — plays this exact track in its original context
+  let rowCtxRemoveInfo = null; // { playlistId, trackIdx } when this row can be removed from a playlist, else null
+  let rowCtxBtn = null;     // the ⋯ button that opened this menu, so "Add to Playlist" can hand off to atpMenu at the same anchor
+
+  function closeRowCtxMenu(){
+    rowCtxMenu.classList.remove('open');
+    rowCtxMenu.setAttribute('aria-hidden', 'true');
+    document.querySelectorAll('.row-menu-btn.active').forEach(b => b.classList.remove('active'));
+    rowCtxTrack = null; rowCtxPlayFn = null; rowCtxRemoveInfo = null; rowCtxBtn = null;
+  }
+
+  function openRowCtxMenu(btn, track, playFn, removeInfo){
+    rowCtxTrack = track;
+    rowCtxPlayFn = playFn;
+    rowCtxRemoveInfo = removeInfo || null;
+    rowCtxBtn = btn;
+
+    document.querySelectorAll('.row-menu-btn.active').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const d = playlistTrackDisplay(track);
+    rowCtxThumb.style.backgroundImage = d.thumb ? `url('${d.thumb}')` : 'none';
+    rowCtxThumb.style.background = d.thumb ? '' : (track.art || 'var(--card-hover)');
+    rowCtxTitle.textContent = d.title;
+    rowCtxArtist.textContent = d.artist;
+
+    rowCtxRemove.style.display = removeInfo ? 'flex' : 'none';
+    rowCtxCopyLink.style.display = (track.kind === 'spotify' && track.id) ? 'flex' : 'none';
+
+    rowCtxMenu.classList.add('open');
+    rowCtxMenu.setAttribute('aria-hidden', 'false');
+
+    const r = btn.getBoundingClientRect();
+    const menuW = 230;
+    let left = r.right - menuW;
+    if(left < 8) left = 8;
+    if(left + menuW > window.innerWidth - 8) left = window.innerWidth - menuW - 8;
+    const top = r.bottom + 6;
+    rowCtxMenu.style.left = left + 'px';
+    rowCtxMenu.style.top = top + 'px';
+    requestAnimationFrame(() => {
+      const menuH = rowCtxMenu.offsetHeight;
+      if(top + menuH > window.innerHeight - 8) rowCtxMenu.style.top = Math.max(8, r.top - menuH - 6) + 'px';
+    });
+  }
+
+  rowCtxPlayNow.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if(rowCtxPlayFn) rowCtxPlayFn();
+    closeRowCtxMenu();
+  });
+  rowCtxAddQueue.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if(rowCtxTrack){
+      manualQueue.push(rowCtxTrack);
+      showGlobalToast(`Added "${rowCtxTrack.title}" to queue`);
+      if(queueDrawer.classList.contains('open')) renderQueueDrawer();
+    }
+    closeRowCtxMenu();
+  });
+  rowCtxRemove.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if(rowCtxRemoveInfo){
+      removeTrackFromLocalPlaylist(rowCtxRemoveInfo.playlistId, rowCtxRemoveInfo.trackIdx);
+      if(openPlaylistId === rowCtxRemoveInfo.playlistId) openLocalPlaylist(openPlaylistId);
+    }
+    closeRowCtxMenu();
+  });
+  rowCtxAddPlaylist.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const track = rowCtxTrack, btn = rowCtxBtn;
+    closeRowCtxMenu();
+    if(track && btn) openAtpMenu(btn, track);
+  });
+  rowCtxCopyLink.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if(rowCtxTrack && rowCtxTrack.id){
+      const url = `https://open.spotify.com/track/${rowCtxTrack.id}`;
+      navigator.clipboard.writeText(url).then(
+        () => showGlobalToast('Link copied'),
+        () => showGlobalToast("Couldn't copy link")
+      );
+    }
+    closeRowCtxMenu();
+  });
+
   function showAtpToast(msg){
     atpToast.textContent = msg;
     atpToast.classList.add('show');
@@ -4503,31 +4719,88 @@
   document.addEventListener('click', (e) => {
     const menuBtn = e.target.closest('[data-row-menu]');
     if(menuBtn){
-      e.stopPropagation();
-      const wasOpenOnThisBtn = atpMenu.classList.contains('open') && menuBtn.classList.contains('active');
+      e.stopImmediatePropagation();
+      const wasOpenOnThisBtn = (rowCtxMenu.classList.contains('open') || atpMenu.classList.contains('open')) && menuBtn.classList.contains('active');
+      closeRowCtxMenu();
       closeAtpMenu();
       if(wasOpenOnThisBtn) return; // clicking the same ⋯ again just closes it
-      let track;
-      if(menuBtn.dataset.rowMenu === 'demo'){
-        const t = tracks[parseInt(menuBtn.dataset.rowMenuTrack, 10)];
+
+      let track, playFn, removeInfo = null;
+      const kind = menuBtn.dataset.rowMenu;
+
+      if(kind === 'demo'){
+        const idParsed = parseInt(menuBtn.dataset.rowMenuTrack, 10);
+        const t = tracks[idParsed];
         if(!t) return;
         track = canonicalTrackFor('demo', t);
-      } else if(menuBtn.dataset.rowMenu === 'saved-preview'){
+        playFn = () => playTrack(idParsed);
+      } else if(kind === 'saved-preview'){
         const p = likedPreviews[parseInt(menuBtn.dataset.rowMenuIdx, 10)];
         if(!p) return;
         track = canonicalTrackFor('preview', { title:p.title, artist:p.artist, thumb:p.thumb, dur:p.dur, raw:{ trackId:p.trackId, previewUrl:p.previewUrl } });
-      } else if(menuBtn.dataset.rowMenu === 'spotify-lib'){
-        const t = spotifyChartTracks[parseInt(menuBtn.dataset.rowMenuIdx, 10)];
+        playFn = () => playSavedPreview(p);
+      } else if(kind === 'spotify-lib'){
+        const idx = parseInt(menuBtn.dataset.rowMenuIdx, 10);
+        const t = spotifyChartTracks[idx];
         if(!t) return;
         track = canonicalTrackFor('spotify', t);
-      } else {
+        playFn = () => { spotifyQueue = spotifyChartTracks; playSpotifyTrack(t, idx); };
+      } else if(kind === 'catalog'){
         const item = svCatalogResults[parseInt(menuBtn.dataset.rowMenuIdx, 10)];
         if(!item) return;
         track = item.kind === 'spotify' ? canonicalTrackFor('spotify', item.raw) : canonicalTrackFor('preview', item);
+        playFn = () => playCatalogItem(item);
+      } else if(kind === 'sr'){
+        // shared search-results-dropdown rows: recently played, an opened local
+        // playlist, an opened Spotify playlist, live Spotify search, or the
+        // iTunes-preview fallback — the row itself already carries which
+        const row = menuBtn.closest('.sr-row');
+        if(!row) return;
+        if(row.dataset.recentId !== undefined){
+          const idParsed = parseInt(row.dataset.recentId, 10);
+          const t = tracks[idParsed];
+          if(!t) return;
+          track = canonicalTrackFor('demo', t);
+          playFn = () => playTrack(idParsed);
+        } else if(row.dataset.source === 'playlist'){
+          const idx = parseInt(row.dataset.idx, 10);
+          const t = openPlaylistTracks && openPlaylistTracks[idx];
+          if(!t) return;
+          track = t.kind ? t : canonicalTrackFor('spotify', t); // legacy raw-Spotify entries have no .kind
+          playFn = () => playPlaylistTrackAt(openPlaylistTracks, idx);
+          if(openPlaylistId) removeInfo = { playlistId: openPlaylistId, trackIdx: idx };
+        } else if(row.dataset.source === 'spotify'){
+          const idx = parseInt(row.dataset.idx, 10);
+          const t = spotifyQueue[idx];
+          if(!t) return;
+          track = canonicalTrackFor('spotify', t);
+          playFn = () => playSpotifyTrack(t, idx);
+        } else {
+          // iTunes-preview fallback search results
+          const idx = parseInt(row.dataset.idx, 10);
+          const items = JSON.parse(searchResults.dataset.itemsJson || '[]');
+          const r = items[idx];
+          if(!r) return;
+          track = canonicalTrackFor('preview', {
+            title: r.trackName || 'Unknown title', artist: r.artistName || 'Unknown artist',
+            thumb: r.artworkUrl100 ? r.artworkUrl100.replace('100x100','400x400') : '',
+            dur: r.trackTimeMillis ? r.trackTimeMillis/1000 : 30,
+            raw: { trackId: r.trackId, previewUrl: r.previewUrl }
+          });
+          playFn = () => playTrackObj({
+            title: r.trackName || 'Unknown title', artist: r.artistName || 'Unknown artist',
+            art: r.artworkUrl100 ? `url('${r.artworkUrl100.replace('100x100','400x400')}') center/cover no-repeat` : palette[0],
+            src: r.previewUrl, dur: r.trackTimeMillis ? r.trackTimeMillis/1000 : 30
+          }, null);
+        }
+      } else {
+        return;
       }
-      openAtpMenu(menuBtn, track);
+
+      openRowCtxMenu(menuBtn, track, playFn, removeInfo);
       return;
     }
+    if(rowCtxMenu.classList.contains('open') && !e.target.closest('#rowCtxMenu')) closeRowCtxMenu();
     if(atpMenu.classList.contains('open') && !e.target.closest('#atpMenu')) closeAtpMenu();
   });
   atpList.addEventListener('click', (e) => {
@@ -4832,6 +5105,9 @@
         <div class="sr-thumb" style="background:${t.art}"></div>
         <div class="sr-meta"><strong>${escapeHtml(t.title)}</strong><small>${escapeHtml(t.artist)}</small></div>
         <div class="sr-dur">${fmtTime(t.dur)}</div>
+        <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(t.title)}" aria-haspopup="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
       </div>`).join('');
     const searchChips = recentSearches.length
       ? '<div class="sr-section-label">Recent searches</div><div class="sr-recent-chip-row">' + recentSearches.map(term => `
@@ -4841,6 +5117,8 @@
           </button>`).join('') + '</div>'
       : '';
     if(!rows && !searchChips){ closeResults(); return; }
+    openPlaylistTracks = null;
+    openPlaylistId = null;
     searchResults.innerHTML = searchChips + (rows ? '<div class="sr-section-label">Recently played</div>' + rows : '');
     searchResults.classList.add('open');
   }
@@ -4886,11 +5164,16 @@
         if(!spItems.length){ renderResultsState(dropdownEmptyHTML('No results. Try another search.')); return; }
         spotifyQueue = spItems;
         spotifyContextName = 'Live search';
+        openPlaylistTracks = null;
+        openPlaylistId = null;
         searchResults.innerHTML = spItems.map((t, i) => `
           <div class="sr-row" data-idx="${i}" data-source="spotify">
             <div class="sr-thumb" style="background-image:url('${t.album.images[2] ? t.album.images[2].url : (t.album.images[0]||{}).url || ''}')"></div>
             <div class="sr-meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
             <div class="sr-dur">${fmtTime(t.duration_ms/1000)}</div>
+            <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(t.name)}" aria-haspopup="true">
+              <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+            </button>
           </div>`).join('');
         searchResults.classList.add('open');
         return;
@@ -4910,11 +5193,16 @@
         renderResultsState(dropdownEmptyHTML('No previewable results. Try another search.'));
         return;
       }
+      openPlaylistTracks = null;
+      openPlaylistId = null;
       searchResults.innerHTML = items.map((r, i) => `
         <div class="sr-row" data-idx="${i}" data-source="preview">
           <div class="sr-thumb" style="background-image:url('${(r.artworkUrl100 || '').replace(/'/g,"\\'")}')"></div>
           <div class="sr-meta"><strong>${escapeHtml(r.trackName || 'Unknown title')}</strong><small>${escapeHtml(r.artistName || 'Unknown artist')}</small></div>
           <div class="sr-dur">${r.trackTimeMillis ? fmtTime(r.trackTimeMillis/1000) : '0:30'}</div>
+          <button class="row-menu-btn" data-row-menu="sr" aria-label="More options for ${escapeHtml(r.trackName || 'this track')}" aria-haspopup="true">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
         </div>`).join('');
       searchResults.classList.add('open');
       searchResults.dataset.itemsJson = JSON.stringify(items);
@@ -4951,6 +5239,7 @@
     }
     const row = e.target.closest('.sr-row');
     if(!row) return;
+    if(e.target.closest('.row-menu-btn')) return; // handled separately by the row-menu click handler
     if(row.dataset.recentId !== undefined){
       playTrack(parseInt(row.dataset.recentId, 10));
       closeResults();
@@ -4983,7 +5272,7 @@
 
 
   document.addEventListener('click', (e) => {
-    if(!e.target.closest('.search-wrap')) closeResults();
+    if(!e.target.closest('.search-wrap') && !e.target.closest('#rowCtxMenu') && !e.target.closest('#atpMenu')) closeResults();
   });
   searchInput.addEventListener('focus', () => {
     const q = searchInput.value.trim();
@@ -6321,6 +6610,12 @@
   npoPrevBtn.addEventListener('click', handlePrevClick);
 
   function stepTrack(dir){
+    if(dir === 1 && manualQueue.length){
+      const next = manualQueue.shift();
+      renderQueueDrawer();
+      playCanonicalTrack(next);
+      return;
+    }
     if(playbackMode === 'spotify'){
       if(!spotifyQueue.length) return;
       let next;
@@ -6356,9 +6651,21 @@
     return img ? img.url : '';
   }
 
+  function manualQueueHTML(){
+    if(!manualQueue.length) return '';
+    return '<div class="queue-section-label">Next up</div>' + manualQueue.map((t, i) => `
+      <div class="queue-row" data-manual-queue-idx="${i}">
+        <div class="thumb" style="${t.thumb ? `background-image:url('${t.thumb}')` : `background:${t.art || palette[i % palette.length]}`}"></div>
+        <div class="meta"><strong>${escapeHtml(t.title)}</strong><small>${escapeHtml(t.artist)}</small></div>
+        <button type="button" class="queue-remove-btn" data-manual-queue-remove="${i}" aria-label="Remove ${escapeHtml(t.title)} from queue">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`).join('');
+  }
+
   function renderQueueDrawer(){
     if(playbackMode === 'spotify'){
-      if(!spotifyQueue.length){
+      if(!spotifyQueue.length && !manualQueue.length){
         queueDrawerBody.innerHTML = '<div class="queue-empty">Nothing queued yet — play something to start a queue.</div>';
         return;
       }
@@ -6374,26 +6681,26 @@
           <div class="thumb" style="background-image:url('${spotifyTrackThumb(t)}')"></div>
           <div class="meta"><strong>${escapeHtml(t.name)}</strong><small>${escapeHtml(t.artists.map(a=>a.name).join(', '))}</small></div>
         </div>`).join('') : '';
-      queueDrawerBody.innerHTML = nowRow + upRows;
+      queueDrawerBody.innerHTML = nowRow + manualQueueHTML() + upRows;
       return;
     }
 
     // local playback mode
-    if(currentIndex === null){
+    if(currentIndex === null && !manualQueue.length){
       queueDrawerBody.innerHTML = '<div class="queue-empty">Nothing queued yet — play something to start a queue.</div>';
       return;
     }
-    const cur = tracks[currentIndex];
-    const nowRow = `
+    const cur = currentIndex !== null ? tracks[currentIndex] : null;
+    const nowRow = cur ? `
       <div class="queue-section-label">Now playing</div>
       <div class="queue-row current" data-queue-track="${cur.id}">
         <div class="thumb" style="background:${cur.art}"></div>
         <div class="meta"><strong>${escapeHtml(cur.title)}</strong><small>${escapeHtml(cur.artist)}</small></div>
-      </div>`;
+      </div>` : '';
     let upRows = '';
     if(shuffleOn){
       upRows = '<div class="queue-section-label">Up next</div><div class="queue-empty" style="padding:16px 10px;">Shuffle is on — up next is a surprise.</div>';
-    } else {
+    } else if(currentIndex !== null){
       const pos = crateOrder.indexOf(currentIndex);
       const ordered = crateOrder.slice(pos + 1).concat(crateOrder.slice(0, pos)).map(id => tracks[id]).filter(Boolean);
       upRows = ordered.length ? '<div class="queue-section-label">Up next</div>' + ordered.map(t => `
@@ -6402,7 +6709,7 @@
           <div class="meta"><strong>${escapeHtml(t.title)}</strong><small>${escapeHtml(t.artist)}</small></div>
         </div>`).join('') : '';
     }
-    queueDrawerBody.innerHTML = nowRow + upRows;
+    queueDrawerBody.innerHTML = nowRow + manualQueueHTML() + upRows;
   }
 
   function openQueueDrawer(){
@@ -6424,8 +6731,24 @@
   queueCloseBtn.addEventListener('click', closeQueueDrawer);
   queueBackdrop.addEventListener('click', closeQueueDrawer);
   queueDrawerBody.addEventListener('click', (e) => {
+    const removeBtn = e.target.closest('[data-manual-queue-remove]');
+    if(removeBtn){
+      manualQueue.splice(parseInt(removeBtn.dataset.manualQueueRemove, 10), 1);
+      renderQueueDrawer();
+      return;
+    }
     const row = e.target.closest('.queue-row');
     if(!row) return;
+    if(row.dataset.manualQueueIdx !== undefined){
+      const idx = parseInt(row.dataset.manualQueueIdx, 10);
+      const t = manualQueue[idx];
+      if(t){
+        manualQueue.splice(0, idx + 1); // jumping to this one skips anything queued ahead of it
+        playCanonicalTrack(t);
+        renderQueueDrawer();
+      }
+      return;
+    }
     if(row.dataset.queueTrack !== undefined){ playTrack(parseInt(row.dataset.queueTrack, 10)); renderQueueDrawer(); return; }
     if(row.dataset.queueIdx !== undefined){
       const idx = parseInt(row.dataset.queueIdx, 10);
