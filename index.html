@@ -4999,7 +4999,7 @@
   // artworkUrl100, previewUrl, trackTimeMillis, trackId) so every place that
   // already consumes iTunes results downstream needs zero other changes.
   async function audiusSearch(query, signal){
-    const url = 'https://api.audius.co/v1/tracks/search?app_name=CELO&query=' + encodeURIComponent(query);
+    const url = 'https://api.audius.co/v1/tracks/search?app_name=CELO&sort_method=popular&query=' + encodeURIComponent(query);
     const res = await fetch(url, { signal });
     if(!res.ok) throw new Error('audius search failed: ' + res.status);
     const data = await res.json();
