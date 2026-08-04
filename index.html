@@ -6192,13 +6192,17 @@
       npGlow.style.opacity = Math.min(0.85, 0.12 + avg * 0.9).toFixed(2);
       npGlow.style.transform = `scale(${(1 + avg*0.4).toFixed(3)})`;
       glowRafId = requestAnimationFrame(glowLoop);
-    } else if(playbackMode === 'spotify' && isPlaying){
-      // Spotify's SDK plays through its own DRM pipeline, so there's no raw
-      // audio here for the Web Audio API to analyse — this is an honest
-      // ambient "breathing" pulse driven by elapsed time, not real audio
-      // reactivity. It's what keeps the ring from just sitting dead/static
-      // while a track plays; the color itself still comes from the real
-      // album art via applyAmbientFromArt.
+    } else if((playbackMode === 'spotify' || playbackMode === 'local') && isPlaying){
+      // No live analyser to read from — either it's Spotify (SDK plays through
+      // its own DRM pipeline, so there's no raw audio for the Web Audio API to
+      // reach) or it's a local/preview track whose Web Audio graph never got
+      // attached (see the NOTE above setPlaying — routing CORS-restricted
+      // audio through createMediaElementSource silences it, so we deliberately
+      // never build that graph). Either way, this is an honest ambient
+      // "breathing" pulse driven by elapsed time, not real audio reactivity —
+      // it's what keeps the ring from sitting dead/static while a track plays;
+      // the color itself still comes from the real album art via
+      // applyAmbientFromArt.
       const t = (ts || performance.now()) / 1000;
       const wave = (Math.sin(t * 1.1) + 1) / 2;
       npGlow.style.opacity = (0.22 + wave * 0.30).toFixed(2);
