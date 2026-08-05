@@ -197,6 +197,20 @@
   .brand .mark::before{ width:9px; height:9px; top:7px; left:6px; }
   .brand .mark::after{ width:9px; height:9px; top:14px; left:15px; }
   .brand span{ font-weight:700; font-size:19px; letter-spacing:-0.01em; }
+  .sidebar-close-btn{
+    display:none;
+    margin-left:auto;
+    width:32px; height:32px;
+    border-radius:50%;
+    border:none;
+    background:transparent;
+    color:var(--text-dim);
+    cursor:pointer;
+    align-items:center; justify-content:center;
+    transition:background .15s ease, color .15s ease;
+  }
+  .sidebar-close-btn svg{ width:18px; height:18px; }
+  .sidebar-close-btn:hover{ background:var(--card); color:var(--text); }
 
   .nav-group{ display:flex; flex-direction:column; gap:2px; margin-bottom:8px; }
   .nav-item{
@@ -325,6 +339,7 @@
     .sidebar{ grid-column:1; }
     .sidebar-backdrop{ display:block; }
     .sidebar-backdrop.open{ opacity:1; pointer-events:auto; }
+    .sidebar-close-btn{ display:flex; }
   }
 
   /* ================= MAIN ================= */
@@ -2327,7 +2342,12 @@
 
   <!-- ================= SIDEBAR ================= -->
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><span class="mark" aria-hidden="true"></span><span class="display">CELO</span></div>
+    <div class="brand">
+      <span class="mark" aria-hidden="true"></span><span class="display">CELO</span>
+      <button class="sidebar-close-btn" id="sidebarCloseBtn" aria-label="Close menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
 
     <nav class="nav-group">
       <button class="nav-item active" data-target="home">
@@ -7630,6 +7650,7 @@
   const sidebar = document.getElementById('sidebar');
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
   const hamburger = document.getElementById('hamburger');
+  const sidebarCloseBtn = document.getElementById('sidebarCloseBtn');
   function openSidebar(){
     sidebar.classList.add('open');
     sidebarBackdrop.classList.add('open');
@@ -7642,6 +7663,7 @@
     sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
   });
   sidebarBackdrop.addEventListener('click', closeSidebar);
+  sidebarCloseBtn.addEventListener('click', closeSidebar);
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape' && sidebar.classList.contains('open')) closeSidebar();
   });
