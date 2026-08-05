@@ -3497,9 +3497,10 @@
   // reshuffled by dragging rows; track objects themselves (and their ids) never move
   let crateOrder = tracks.map(t => t.id);
 
-  const playlists = [
-    'Chill Mix','Focus Flow','Late Night Drive','Sunday Morning','Workout Pump','Road Trip Radio'
-  ];
+  // demo placeholder crates shown in the sidebar before a real library (Spotify
+  // or user-created) exists — left empty by request, so only Liked Songs and
+  // any local/Spotify playlists show up
+  const playlists = [];
 
   // ---------------- state ----------------
   let currentIndex = null;
