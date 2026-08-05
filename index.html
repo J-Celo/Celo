@@ -3161,13 +3161,25 @@
         npArtist.textContent = t.artists.map(a => a.name).join(', ');
         npoTitle.textContent = t.name;
         npoArtist.textContent = t.artists.map(a => a.name).join(', ');
+        let confirmedArt = '';
         if(t.album && t.album.images && t.album.images[0]){
-          const art = `url('${t.album.images[0].url}') center/cover no-repeat`;
-          npArt.style.background = art;
-          npoSleeve.style.background = art;
-          npoVinyl.style.background = art;
-          applyAmbientFromArt(art);
+          confirmedArt = `url('${t.album.images[0].url}') center/cover no-repeat`;
+          npArt.style.background = confirmedArt;
+          npoSleeve.style.background = confirmedArt;
+          npoVinyl.style.background = confirmedArt;
+          applyAmbientFromArt(confirmedArt);
           pulseArtSwap();
+        }
+        // this is the confirmed track Spotify is actually playing (it can differ
+        // from whatever we last optimistically requested), so it's the correct
+        // source to sync the mini-player and info panel from too
+        if(typeof updateMiniPlayer === 'function') updateMiniPlayer({ art: confirmedArt, title: t.name, artist: t.artists.map(a => a.name).join(', ') });
+        if(typeof updateTrackInfoPanel === 'function'){
+          updateTrackInfoPanel({
+            album: t.album ? t.album.name : '',
+            genre: t.genre || '',
+            release: t.album ? t.album.release_date : ''
+          });
         }
         if(typeof onTrackChangedForLyrics === 'function') onTrackChangedForLyrics();
       }
