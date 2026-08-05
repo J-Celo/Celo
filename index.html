@@ -3184,12 +3184,8 @@
       playSpotifyTrack(spotifyQueue[spotifyQueueIndex], spotifyQueueIndex);
       return;
     }
-    const atEnd = spotifyQueueIndex === spotifyQueue.length - 1;
-    if(repeatMode === 'off' && atEnd){
-      // reached the end of the queue with repeat off — stop instead of looping back to the first track
-      setPlaying(false);
-      return;
-    }
+    // keep the music going — wrap back to the first track instead of
+    // stopping when the queue runs out, so playback never just dead-ends
     stepTrack(1);
   }
 
@@ -7066,7 +7062,17 @@
   });
 
   function handlePlayClick(){
-    if(playbackMode === 'local' && currentIndex === null){ playTrack(crateOrder[0]); return; }
+    if(playbackMode === 'local' && currentIndex === null){
+      // fresh visit, nothing picked yet — start a shuffled, never-ending mix
+      if(!shuffleOn){
+        shuffleOn = true;
+        shuffleBtn.classList.add('toggled');
+        npoShuffleBtn.classList.add('toggled');
+        savePersistedState({ shuffleOn });
+      }
+      playTrack(crateOrder[Math.floor(Math.random() * crateOrder.length)]);
+      return;
+    }
     setPlaying(!isPlaying);
   }
   playBtn.addEventListener('click', handlePlayClick);
@@ -7372,13 +7378,8 @@
       audioEl.play().catch(()=>{});
       return;
     }
-    const atEnd = currentIndex !== null && crateOrder.indexOf(currentIndex) === crateOrder.length - 1;
-    if(repeatMode === 'off' && atEnd && !shuffleOn){
-      // reached the end of the crate with repeat off — stop instead of looping back to A1
-      audioEl.currentTime = 0;
-      setPlaying(false);
-      return;
-    }
+    // keep the music going — wrap back to A1 instead of stopping when the
+    // crate runs out, so playback never just dead-ends
     stepTrack(1);
   });
 
