@@ -4242,10 +4242,22 @@
   }
   const uploadBtn = document.getElementById('uploadBtn');
   const uploadInput = document.getElementById('uploadInput');
+  const AUDIO_EXTENSIONS = /\.(mp3|wav|ogg|oga|m4a|aac|flac|wma|opus|webm|aiff|aif)$/i;
   if(uploadBtn && uploadInput){
     uploadBtn.addEventListener('click', () => uploadInput.click());
     uploadInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('audio/'));
+      const picked = Array.from(e.target.files || []);
+      // Some browsers/OSes don't have mp3 (and other formats) registered in
+      // their local mime database, so File.type comes back empty or as
+      // 'application/octet-stream' instead of 'audio/mpeg' — trust the file
+      // extension as a fallback instead of silently dropping those files.
+      const files = picked.filter(f => f.type.startsWith('audio/') || AUDIO_EXTENSIONS.test(f.name));
+      const skipped = picked.length - files.length;
+      if(!files.length){
+        showGlobalToast(picked.length ? "Couldn't recognize that as an audio file" : 'No file selected');
+        e.target.value = '';
+        return;
+      }
       files.forEach(file => {
         const src = URL.createObjectURL(file);
         const title = file.name.replace(/\.[^/.]+$/, '');
@@ -4263,8 +4275,18 @@
           track.dur = probe.duration || 0;
           renderUploadsShelf();
         }, { once:true });
+        probe.addEventListener('error', () => {
+          // the browser couldn't decode it after all (wrong/unsupported format
+          // despite the audio-ish name/type) — pull it back out and say so
+          const idx = localUploads.indexOf(track);
+          if(idx !== -1) localUploads.splice(idx, 1);
+          renderUploadsShelf();
+          showGlobalToast(`Couldn't play "${title}" — unsupported file`);
+        }, { once:true });
       });
       renderUploadsShelf();
+      showGlobalToast(files.length > 1 ? `Added ${files.length} songs` : `Added "${files[0].name.replace(/\.[^/.]+$/, '')}"`);
+      if(skipped) showGlobalToast(`Skipped ${skipped} file${skipped > 1 ? 's' : ''} that didn't look like audio`, 2600);
       e.target.value = ''; // allow re-selecting the same file later
     });
   }
